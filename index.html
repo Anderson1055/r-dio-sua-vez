@@ -87,8 +87,10 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 <section class="card">
   <h2>🎵 Tocando na Rádio Sua Vez</h2>
   <div style="text-align:center;padding:20px;background:linear-gradient(135deg,#17264a,#392044);border-radius:16px">
-   <img src="Imagem%20do%20ChatGPT%207%20de%20nov.%20de%202026%2C%2000_44_30.jpg" alt="Capa Meu Girassol" style="width:220px;max-width:100%;border-radius:15px;">
-    <h2 style="margin:10px 0">Meu Girassol</h2>
+  <img id="capaMusica" src="Imagem%20do%20ChatGPT%207%20de%20nov.%20de%202026%2C%2000_44_30.jpg" alt="Capa Meu Girassol" style="width:220px;max-width:100%;border-radius:15px;">
+    
+<h2 id="tituloMusica" style="margin:10px 0">Meu Girassol</h2>
+  
     <p>🎤 Anderson Picoloto</p>
     <p style="color:#ffda59">Rádio Sua Vez</p>
     <audio controls style="width:100%">
@@ -132,7 +134,20 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
     const agora = document.getElementById("tocandoAgora");
 
     function tocarMusica(indice, iniciar = true) {
-      const musica = musicas[indice];
+    const musica = musicas[indice];
+    player.src = musica.arquivo;
+      
+     const capa = document.getElementById("capaMusica");
+      const tituloCapa = document.getElementById("tituloMusica");
+
+if (indice === 0) {
+  capa.src = "Imagem%20do%20ChatGPT%207%20de%20nov.%20de%202026%2C%2000_44_30.jpg";
+  capa.alt = "Capa Meu Girassol";
+} else if (indice === 1) {
+  capa.src = "Imagem%20do%20ChatGPT%207%20de%20nov.%20de%202026%2C%2002_13_43.jpg";
+  capa.alt = "Capa O Mar Levou";
+}
+      tituloCapa.textContent = musica.titulo;
       player.src = musica.arquivo;
       agora.textContent = "🎵 Tocando: " + musica.titulo;
       escolha.value = indice;
