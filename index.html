@@ -1,0 +1,92 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rádio Sua Vez | Novos Talentos</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#080b15;color:white;font-family:Arial,sans-serif}
+header{text-align:center;padding:55px 15px;background:linear-gradient(135deg,#090b17,#252038,#42200b)}
+.logo{font-size:clamp(42px,8vw,85px);font-weight:900;line-height:1.1}
+.logo span{color:#ffbd35}
+header p{font-size:20px;color:#f6d49a}
+nav{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;padding:17px;background:#050711}
+nav a{color:white;text-decoration:none;padding:10px}
+nav a:hover{color:#ffbd35}
+main{max-width:1150px;margin:auto;padding:25px 15px}
+.card{background:#121827;border:1px solid #a86a20;border-radius:16px;padding:25px;margin:20px 0}
+h2{color:#ffbd35}
+button,.btn{background:linear-gradient(90deg,#e27b0b,#ffca46);color:#15100a;border:0;border-radius:30px;padding:14px 24px;font-weight:bold;cursor:pointer;text-decoration:none;display:inline-block}
+button:hover,.btn:hover{filter:brightness(1.12)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.genre{background:#20263a;border-radius:12px;text-align:center;padding:20px;font-weight:bold}
+#aviso{color:#ffd88c}
+footer{text-align:center;background:#050711;padding:35px;color:#aaa}
+</style>
+</head>
+<body>
+<header>
+<div class="logo">RÁDIO<br><span>SUA VEZ</span></div>
+<p>🎙️ A rádio dos novos talentos</p>
+<p>Todos os estilos, uma só frequência!</p>
+</header>
+
+<nav>
+<a href="#inicio">Início</a>
+<a href="#ouvir">Ouvir agora</a>
+<a href="#estilos">Estilos</a>
+<a href="#divulgar">Divulgue sua música</a>
+<a href="#programacao">Programação</a>
+</nav>
+
+<main id="inicio">
+<section class="card" id="ouvir">
+<h2>📻 Ouça a Rádio Sua Vez</h2>
+<p>O espaço onde novos talentos ganham voz.</p>
+<button onclick="document.getElementById('aviso').textContent='Estamos preparando nossa transmissão. Em breve você poderá ouvir a rádio aqui!'">▶ Ouvir ao vivo</button>
+<p id="aviso" aria-live="polite"></p>
+</section>
+
+<section class="card" id="divulgar">
+<h2>📣 Divulgue sua música aqui!</h2>
+<p>Você é artista independente? Sua música merece ser ouvida!</p>
+<p>Em breve teremos informações sobre os planos de divulgação, envio de músicas e participação na programação.</p>
+</section>
+
+<section class="card" id="estilos">
+<h2>🎵 Todos os estilos musicais</h2>
+<div class="grid">
+<div class="genre">🤠 Sertanejo</div>
+<div class="genre">❤️ Romântico</div>
+<div class="genre">🎧 Pop</div>
+<div class="genre">✨ Gospel</div>
+<div class="genre">🪗 Forró</div>
+<div class="genre">🥁 Pagode</div>
+<div class="genre">🎸 Rock</div>
+<div class="genre">🎛️ Funk</div>
+<div class="genre">🎼 MPB</div>
+<div class="genre">🌎 Internacional</div>
+</div>
+</section>
+
+<section class="card" id="programacao">
+<h2>🕒 Programação</h2>
+<p>Estamos preparando uma programação especial com músicas de artistas independentes.</p>
+<p>Nosso objetivo é transmitir música 24 horas por dia.</p>
+</section>
+
+<section class="card">
+<h2>⭐ Artistas independentes</h2>
+<p>Em breve, conheça os talentos que farão parte da Rádio Sua Vez.</p>
+</section>
+</main>
+
+<footer>
+<strong>Rádio Sua Vez</strong>
+<p>A rádio dos novos talentos</p>
+<p>© 2026 Rádio Sua Vez</p>
+</footer>
+</body>
+</html>
