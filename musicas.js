@@ -17,7 +17,7 @@ const musicas = [
   titulo: "Um Dia Antes do Sim",
   artista: "Anderson Picoloto",
   arquivo: "Um dia antes do sim.mp3",
-  capa: capa: "Capa%20Rom%C3%A2ntica%20Um%20Dia%20Antes%20do%20Sim.png"
+  capa: capa: capa: "Capa%20Rom%C3%A2ntica%20Um%20Dia%20Antes%20do%20Sim.png"
 }
 
 ];
