@@ -1,0 +1,79 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel Administrativo | Rádio Sua Vez</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:#080b15;
+  color:white;
+  font-family:Arial,sans-serif;
+}
+header{
+  text-align:center;
+  padding:35px 15px;
+  background:linear-gradient(135deg,#17152c,#42200b);
+}
+h1,h2{color:#ffbd35}
+main{max-width:800px;margin:auto;padding:20px}
+.card{
+  background:#121827;
+  border:1px solid #a86a20;
+  border-radius:16px;
+  padding:25px;
+  margin:20px 0;
+}
+button{
+  background:linear-gradient(90deg,#e27b0b,#ffca46);
+  border:0;
+  border-radius:25px;
+  padding:13px 22px;
+  font-weight:bold;
+  cursor:pointer;
+}
+input{
+  display:block;
+  width:100%;
+  padding:12px;
+  margin:12px 0;
+  border-radius:8px;
+}
+small{color:#bbb}
+</style>
+</head>
+<body>
+<header>
+<h1>📻 RÁDIO SUA VEZ</h1>
+<p>Painel Administrativo</p>
+</header>
+<main>
+<section class="card">
+<h2>🎵 Adicionar música</h2>
+<label>Nome da música</label>
+<input type="text" placeholder="Ex.: Meu Girassol">
+<label>Nome do artista</label>
+<input type="text" placeholder="Ex.: Anderson Picoloto">
+<label>Arquivo MP3</label>
+<input type="file" accept="audio/mpeg,.mp3">
+<label>Capa da música</label>
+<input type="file" accept="image/*">
+<button type="button" disabled>Adicionar música (em preparação)</button>
+<p><small>O envio será ativado após configurarmos o login seguro e o armazenamento.</small></p>
+</section>
+<section class="card">
+<h2>🎶 Gerenciar músicas</h2>
+<p>Aqui você poderá visualizar, organizar e excluir músicas.</p>
+<p>Estamos preparando essa função.</p>
+</section>
+<section class="card">
+<h2>🔐 Segurança</h2>
+<p>O acesso administrativo ainda não está protegido.</p>
+<p>Não coloque senhas nesta página. Vamos configurar a autenticação antes de ativar o gerenciamento.</p>
+</section>
+</main>
+</body>
+</html>
