@@ -45,7 +45,9 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 <section class="card" id="ouvir">
 <h2>📻 Ouça a Rádio Sua Vez</h2>
 <p>O espaço onde novos talentos ganham voz.</p>
-<button onclick="document.getElementById('aviso').textContent='Estamos preparando nossa transmissão. Em breve você poderá ouvir a rádio aqui!'">▶ Ouvir ao vivo</button>
+
+<button onclick="document.getElementById('playerPlaylist').play()">▶ Ouvir ao vivo</button>
+
 <p id="aviso" aria-live="polite"></p>
 </section>
 
