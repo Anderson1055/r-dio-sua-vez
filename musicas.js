@@ -3,7 +3,7 @@ const musicas = [
   {
     titulo: "Meu Girassol",
     artista: "Anderson Picoloto",
-    arquivo: "Meu%20Girassol%20%28Remix%29.mp3",
+    arquivo: "https://utspktlfxeqwrpynnesc.supabase.co/storage/v1/object/public/musicas/Meu%20Girassol%20(Remix).mp3",
     capa: "Imagem%20do%20ChatGPT%207%20de%20nov.%20de%202026%2C%2000_44_30.jpg"
   },
   {
@@ -17,7 +17,7 @@ const musicas = [
   titulo: "Um Dia Antes do Sim",
   artista: "Anderson Picoloto",
   arquivo: "Um dia antes do sim.mp3",
-  capa: capa: capa: "Capa%20Rom%C3%A2ntica%20Um%20Dia%20Antes%20do%20Sim.png"
+  capa: "Capa%20Rom%C3%A2ntica%20Um%20Dia%20Antes%20do%20Sim.png"
 }
 
 ];
