@@ -75,5 +75,17 @@ small{color:#bbb}
 <p>Não coloque senhas nesta página. Vamos configurar a autenticação antes de ativar o gerenciamento.</p>
 </section>
 </main>
+  
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = "https://utspktlfxeqwrpynnesc.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_a5QjPd8KUj3Gh35h_mP-Dg_-E7TtGtY";
+
+  const supabaseClient = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
+  );
+</script>
+
 </body>
 </html>
