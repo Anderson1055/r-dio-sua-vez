@@ -107,6 +107,7 @@ small{color:#bbb}
     SUPABASE_URL,
     SUPABASE_KEY
   );
+  const ADMIN_ID = "54fddf03-afc6-464e-b815-9d46d6c2f01c";
 document.getElementById("formLogin").addEventListener("submit", async function(event) {
   event.preventDefault();
 
@@ -122,7 +123,7 @@ document.getElementById("formLogin").addEventListener("submit", async function(e
   if (error) {
     mensagem.textContent = "Erro no login: " + error.message;
   } else {
-  const ADMIN_ID = "54fddf03-afc6-464e-b815-9d46d6c2f01c";
+  
 
   if (data.user?.id === ADMIN_ID) {
     mensagem.textContent = "Login de administrador autorizado!";
@@ -265,7 +266,28 @@ botaoExcluir.onclick = async () => {
   await listarMusicas();
 };
 
-item.append(titulo, player, botaoExcluir);
+const botaoAprovar = document.createElement("button");
+botaoAprovar.textContent = "✅ Aprovar";
+botaoAprovar.type = "button";
+    
+botaoAprovar.onclick = async () => {
+  const { data: { user }, error: erroLogin } =
+    await supabaseClient.auth.getUser();
+
+  if (erroLogin || !user || user.id !== ADMIN_ID) {
+    alert("Acesso não autorizado!");
+    return;
+  }
+
+  alert("Administrador autorizado. Próximo passo: aprovar música.");
+};
+
+
+const botaoRejeitar = document.createElement("button");
+botaoRejeitar.textContent = "❌ Rejeitar";
+botaoRejeitar.type = "button";
+  
+item.append(titulo, player, botaoAprovar, botaoRejeitar, botaoExcluir);
     lista.appendChild(item);
   }
 }
