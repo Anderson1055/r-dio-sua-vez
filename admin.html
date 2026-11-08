@@ -129,6 +129,52 @@ document.getElementById("formLogin").addEventListener("submit", async function(e
 }
 });
 
+document.getElementById("btnAdicionarMusica")
+  .addEventListener("click", async function () {
+    const usuario = (await supabaseClient.auth.getUser()).data.user;
+
+    if (!usuario || usuario.id !== "54fddf03-afc6-464e-b815-9d46d6c2f01c") {
+      alert("Acesso não autorizado!");
+      return;
+    }
+
+    const arquivos = document.querySelectorAll('input[type="file"]');
+    const mp3 = arquivos[0]?.files[0];
+    const capa = arquivos[1]?.files[0];
+
+    if (!mp3 || !capa) {
+      alert("Escolha o MP3 e a capa da música.");
+      return;
+    }
+
+    const nomeBase = crypto.randomUUID();
+
+    const enviar = async (arquivo, caminho) => {
+      const { error } = await supabaseClient.storage
+        .from("musicas")
+        .upload(caminho, arquivo);
+
+      if (error) throw error;
+    };
+
+    this.disabled = true;
+    this.textContent = "Enviando...";
+
+    try {
+      await enviar(mp3, nomeBase + ".mp3");
+      await enviar(capa, nomeBase + "." + (capa.name.split(".").pop() || "jpg"));
+
+      alert("Arquivos enviados com sucesso!");
+    } catch (erro) {
+      alert("Erro no envio: " + erro.message);
+    } finally {
+      this.disabled = false;
+      this.textContent = "Adicionar música";
+    }
+  });
+
+  
+
 </script>
 
 </body>
