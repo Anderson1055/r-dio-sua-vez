@@ -76,7 +76,25 @@ small{color:#bbb}
 </section>
 </main>
   
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<section class="card" id="loginAdmin">
+  <h2>🔐 Login Administrativo</h2>
+  <p>Entre para administrar a Rádio Sua Vez.</p>
+
+  <form id="formLogin">
+    <label for="emailAdmin">E-mail</label>
+    <input id="emailAdmin" type="email" required>
+
+    <label for="senhaAdmin">Senha</label>
+    <input id="senhaAdmin" type="password" required>
+
+    <button type="submit">Entrar</button>
+  </form>
+
+  <p id="mensagemLogin"></p>
+</section>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   const SUPABASE_URL = "https://utspktlfxeqwrpynnesc.supabase.co";
   const SUPABASE_KEY = "sb_publishable_a5QjPd8KUj3Gh35h_mP-Dg_-E7TtGtY";
@@ -85,6 +103,25 @@ small{color:#bbb}
     SUPABASE_URL,
     SUPABASE_KEY
   );
+document.getElementById("formLogin").addEventListener("submit", async function(event) {
+  event.preventDefault();
+
+  const email = document.getElementById("emailAdmin").value;
+  const senha = document.getElementById("senhaAdmin").value;
+  const mensagem = document.getElementById("mensagemLogin");
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: email,
+    password: senha
+  });
+
+  if (error) {
+    mensagem.textContent = "Erro no login: " + error.message;
+  } else {
+    mensagem.textContent = "Login realizado com sucesso!";
+  }
+});
+
 </script>
 
 </body>
