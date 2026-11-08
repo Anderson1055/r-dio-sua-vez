@@ -131,22 +131,50 @@ const lista = document.getElementById("escolherMusica");
 const player = document.getElementById("playerPlaylist");
 const tocando = document.getElementById("tocandoAgora");
 
-const musicas = [
-  {
-    titulo: "Meu Girassol",
-    artista: "Anderson Picoloto",
-    arquivo: "https://utspktlfxeqwrpynnesc.supabase.co/storage/v1/object/public/musicas/6d9df376-e03d-49c8-bce2-4a5ba07359a7.mp3"
+
+let musicas = [];
+
+const supabaseUrl = "https://utspktlfxeqwrpynnesc.supabase.co";
+const supabaseKey = "sb_publishable_a5QjPd8KUj3Gh35h_mP-Dg_-E7TtGtY;
+
+async function carregarMusicas() {
+  try {
+    const resposta = await fetch(
+      `${supabaseUrl}/rest/v1/musicas?select=titulo,artista,arquivo_url&aprovada=eq.true`,
+      {
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`
+        }
+      }
+    );
+
+    if (!resposta.ok) throw new Error("Erro ao buscar músicas");
+
+    const dados = await resposta.json();
+
+    musicas = dados.map(m => ({
+      titulo: m.titulo,
+      artista: m.artista,
+      arquivo: m.arquivo_url
+    }));
+
+    lista.innerHTML = '<option value="">Escolha uma música</option>';
+
+    musicas.forEach((musica, indice) => {
+      const opcao = document.createElement("option");
+      opcao.value = indice;
+      opcao.textContent = musica.titulo + " - " + musica.artista;
+      lista.appendChild(opcao);
+    });
+  } catch (erro) {
+    console.error("Erro ao carregar músicas:", erro);
   }
-];
+}
 
-lista.innerHTML = '<option value="">Escolha uma música</option>';
 
-musicas.forEach((musica, indice) => {
-  const opcao = document.createElement("option");
-  opcao.value = indice;
-  opcao.textContent = musica.titulo + " - " + musica.artista;
-  lista.appendChild(opcao);
-});
+carregarMusicas();
+
 
 lista.addEventListener("change", function() {
   if (this.value === "") return;
