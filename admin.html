@@ -219,7 +219,29 @@ async function listarMusicas() {
     player.src = url;
     player.style.maxWidth = "100%";
 
-    item.append(titulo, player);
+   const botaoExcluir = document.createElement("button");
+botaoExcluir.textContent = "🗑️ Excluir";
+botaoExcluir.type = "button";
+
+botaoExcluir.onclick = async () => {
+  if (!confirm("Tem certeza que deseja excluir esta música?")) {
+    return;
+  }
+
+  const { error } = await supabaseClient.storage
+    .from("musicas")
+    .remove([musica.name]);
+
+  if (error) {
+    alert("Erro ao excluir: " + error.message);
+    return;
+  }
+
+  alert("Música excluída com sucesso!");
+  await listarMusicas();
+};
+
+item.append(titulo, player, botaoExcluir);
     lista.appendChild(item);
   }
 }
