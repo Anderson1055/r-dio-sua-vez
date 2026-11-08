@@ -183,6 +183,36 @@ lista.addEventListener("change", function() {
   tocando.textContent = "🎵 Tocando: " + musica.titulo + " - " + musica.artista;
   player.play().catch(() => {});
 });
+  
+async function tocarMusica(indice) {
+  if (musicas.length === 0) {
+    await carregarMusicas();
+  }
+
+  if (musicas.length === 0) {
+    alert("Ainda não há músicas aprovadas para tocar.");
+    return;
+  }
+
+  const musica = musicas[indice];
+
+  if (!musica || !musica.arquivo) {
+    alert("Não foi possível encontrar o áudio.");
+    return;
+  }
+
+  player.src = musica.arquivo;
+  tocando.textContent = "🎵 Tocando: " +
+    musica.titulo + " - " + musica.artista;
+
+  try {
+    await player.play();
+  } catch (erro) {
+    alert("Não foi possível reproduzir a música.");
+    console.error(erro);
+  }
+}
+
 </script>
 </body>
 </html>
