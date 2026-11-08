@@ -126,5 +126,35 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 <p>A rádio dos novos talentos</p>
 <p>© 2026 Rádio Sua Vez</p>
 </footer>
+<script>
+const lista = document.getElementById("escolherMusica");
+const player = document.getElementById("playerPlaylist");
+const tocando = document.getElementById("tocandoAgora");
+
+const musicas = [
+  {
+    titulo: "Meu Girassol",
+    artista: "Anderson Picoloto",
+    arquivo: "https://utspktlfxeqwrpynnesc.supabase.co/storage/v1/object/public/musicas/6d9df376-e03d-49c8-bce2-4a5ba07359a7.mp3"
+  }
+];
+
+lista.innerHTML = '<option value="">Escolha uma música</option>';
+
+musicas.forEach((musica, indice) => {
+  const opcao = document.createElement("option");
+  opcao.value = indice;
+  opcao.textContent = musica.titulo + " - " + musica.artista;
+  lista.appendChild(opcao);
+});
+
+lista.addEventListener("change", function() {
+  if (this.value === "") return;
+  const musica = musicas[Number(this.value)];
+  player.src = musica.arquivo;
+  tocando.textContent = "🎵 Tocando: " + musica.titulo + " - " + musica.artista;
+  player.play().catch(() => {});
+});
+</script>
 </body>
 </html>
