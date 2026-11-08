@@ -153,6 +153,9 @@ document.getElementById("btnAdicionarMusica")
     }
 
     const nomeBase = crypto.randomUUID();
+  const campos = document.querySelectorAll('input[type="text"]');
+const nomeMusica = campos[0].value.trim();
+const nomeArtista = campos[1].value.trim();
 
     const enviar = async (arquivo, caminho) => {
       const { error } = await supabaseClient.storage
