@@ -60,8 +60,7 @@ small{color:#bbb}
 <label>Arquivo MP3</label>
 <input type="file" accept="audio/mpeg,.mp3">
 <label>Capa da música</label>
-<input type="file" accept="image/*">
-<button type="button" disabled>Adicionar música (em preparação)</button>
+<input type="file" accept="image/*"><button type="button" id="btnAdicionarMusica" disabled>Adicionar música</button>
 <p><small>O envio será ativado após configurarmos o login seguro e o armazenamento.</small></p>
 </section>
 <section class="card">
@@ -118,8 +117,16 @@ document.getElementById("formLogin").addEventListener("submit", async function(e
   if (error) {
     mensagem.textContent = "Erro no login: " + error.message;
   } else {
-    mensagem.textContent = "Login realizado com sucesso!";
+  const ADMIN_ID = "54fddf03-afc6-464e-b815-9d46d6c2f01c";
+
+  if (data.user?.id === ADMIN_ID) {
+    mensagem.textContent = "Login de administrador autorizado!";
+    document.getElementById("btnAdicionarMusica").disabled = false;
+  } else {
+    mensagem.textContent = "Acesso não autorizado!";
+    await supabaseClient.auth.signOut();
   }
+}
 });
 
 </script>
