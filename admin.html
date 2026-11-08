@@ -279,7 +279,18 @@ botaoAprovar.onclick = async () => {
     return;
   }
 
-  alert("Administrador autorizado. Próximo passo: aprovar música.");
+  const { error } = await supabaseClient
+  .from("musicas")
+  .update({ aprovada: true })
+  .eq("arquivo_url", url);
+
+if (error) {
+  alert("Erro ao aprovar: " + error.message);
+  return;
+}
+
+alert("Música aprovada com sucesso!");
+await listarMusicas();
 };
 
 
