@@ -163,14 +163,35 @@ const nomeArtista = campos[1].value.trim();
         .upload(caminho, arquivo);
 
       if (error) throw error;
-    };
+    
+const { data } = supabaseClient.storage
+  .from("musicas")
+  .getPublicUrl(caminho);
+return data.publicUrl;
+};
 
     this.disabled = true;
     this.textContent = "Enviando...";
 
     try {
-      await enviar(mp3, nomeBase + ".mp3");
-      await enviar(capa, nomeBase + "." + (capa.name.split(".").pop() || "jpg"));
+      
+const urlMp3 = await enviar(mp3, nomeBase + ".mp3");
+
+   
+const urlCapa = await enviar(capa, nomeBase + "." + (capa.name.split(".").pop() || "jpg"));
+
+
+const { error: erroCadastro } = await supabaseClient
+  .from("musicas")
+  .insert([{
+    titulo: nomeMusica,
+    artista: nomeArtista,
+    arquivo_url: urlMp3,
+    capa_url: urlCapa,
+    aprovada: false
+  }]);
+
+if (erroCadastro) throw erroCadastro;
 
       alert("Arquivos enviados com sucesso!");
     } catch (erro) {
