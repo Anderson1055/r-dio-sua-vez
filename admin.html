@@ -247,7 +247,7 @@ if (error || !user || user.id !== ADMIN_ID) {
 const { data: cadastros, error: erroCadastros } =
   await supabaseClient
     .from("musicas")
-    .select("titulo, artista, arquivo_url");
+    .select("id, titulo, artista, arquivo_url");
 
 if (erroCadastros) {
   lista.textContent = "Erro ao buscar cadastros: " +
