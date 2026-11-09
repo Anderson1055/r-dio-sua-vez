@@ -227,6 +227,17 @@ if (error || !user || user.id !== ADMIN_ID) {
 
   lista.replaceChildren();
 
+const { data: cadastros, error: erroCadastros } =
+  await supabaseClient
+    .from("musicas")
+    .select("titulo, artista, arquivo_url");
+
+if (erroCadastros) {
+  lista.textContent = "Erro ao buscar cadastros: " +
+    erroCadastros.message;
+  return;
+}
+
   const musicas = arquivos.filter(a =>
     a.name.toLowerCase().endsWith(".mp3")
   );
@@ -245,7 +256,15 @@ if (error || !user || user.id !== ADMIN_ID) {
     item.style.margin = "20px 0";
 
     const titulo = document.createElement("p");
- titulo.textContent = "🎵 " + musica.name;
+ 
+const cadastro = (cadastros || []).find(c =>
+  c.arquivo_url === url
+);
+
+titulo.textContent = cadastro
+  ? "🎵 " + cadastro.titulo + " — " + cadastro.artista
+  : "🎵 " + musica.name;
+
     
     const player = document.createElement("audio");
     player.controls = true;
