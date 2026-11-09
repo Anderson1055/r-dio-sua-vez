@@ -128,7 +128,7 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 <div style="text-align:center; margin-top:15px;">
   <img id="capaPlaylist"
        alt="Capa da música escolhida"
-       style="width:150px; max-width:100%; border-radius:12px; display:none;">
+       style="width:80px; max-width:100%; border-radius:12px; display:none;">
 </div>
 
   
@@ -195,6 +195,11 @@ lista.addEventListener("change", function() {
   if (this.value === "") return;
   const musica = musicas[Number(this.value)];
   player.src = musica.arquivo;
+  
+const capa = document.getElementById("capaPlaylist");
+capa.src = musica.capa || "";
+capa.style.display = musica.capa ? "inline-block" : "none";
+
   
 document.getElementById("playerRadio").pause();
 
