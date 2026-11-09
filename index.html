@@ -125,6 +125,12 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
     Seu navegador não suporta áudio.
   </audio>
 
+<div style="text-align:center; margin-top:15px;">
+  <img id="capaPlaylist"
+       alt="Capa da música escolhida"
+       style="width:150px; max-width:100%; border-radius:12px; display:none;">
+</div>
+
   
 </section>
 
@@ -189,6 +195,9 @@ lista.addEventListener("change", function() {
   if (this.value === "") return;
   const musica = musicas[Number(this.value)];
   player.src = musica.arquivo;
+  
+document.getElementById("playerRadio").pause();
+
   tocando.textContent = "🎵 Tocando: " + musica.titulo + " - " + musica.artista;
   player.play().catch(() => {});
 });
