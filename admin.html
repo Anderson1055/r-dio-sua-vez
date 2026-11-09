@@ -292,23 +292,38 @@ titulo.textContent = cadastro
 botaoExcluir.textContent = "🗑️ Excluir";
 botaoExcluir.type = "button";
 
+
 botaoExcluir.onclick = async () => {
   if (!confirm("Tem certeza que deseja excluir esta música?")) {
     return;
   }
 
-  const { error } = await supabaseClient.storage
-    .from("musicas")
-    .remove([musica.name]);
+  try {
+    // Excluir o cadastro da música
+    if (cadastro) {
+      const { error: erroBanco } = await supabaseClient
+        .from("musicas")
+        .delete()
+        .eq("id", cadastro.id);
 
-  if (error) {
-    alert("Erro ao excluir: " + error.message);
-    return;
+      if (erroBanco) throw erroBanco;
+    }
+
+    // Excluir o arquivo MP3
+    const { error: erroArquivo } = await supabaseClient.storage
+      .from("musicas")
+      .remove([musica.name]);
+
+    if (erroArquivo) throw erroArquivo;
+
+    alert("Música excluída com sucesso!");
+    await listarMusicas();
+
+  } catch (erro) {
+    alert("Erro ao excluir: " + erro.message);
   }
-
-  alert("Música excluída com sucesso!");
-  await listarMusicas();
 };
+
 
 const botaoAprovar = document.createElement("button");
 botaoAprovar.textContent = "✅ Aprovar";
