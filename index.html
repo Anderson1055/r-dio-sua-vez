@@ -40,6 +40,16 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 <a href="#divulgar">Divulgue sua música</a>
 <a href="#programacao">Programação</a>
 </nav>
+  
+<div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;padding:20px;">
+  <button type="button" id="btnSairRadio">
+    🚪 Sair da Rádio
+  </button>
+  <button type="button" id="btnContinuarOuvindo">
+    🎧 Continuar ouvindo
+  </button>
+</div>
+
 
 <main id="inicio">
 <section class="card" id="ouvir">
@@ -300,6 +310,23 @@ if (tituloRadio) {
     alert("Não foi possível reproduzir a música.");
   }
 }
+
+document.getElementById("btnSairRadio").addEventListener("click", function () {
+  const audios = document.querySelectorAll("audio");
+
+  audios.forEach(audio => {
+    audio.pause();
+    audio.currentTime = 0;
+  });
+
+  alert("Obrigado por ouvir a Rádio Sua Vez! Volte sempre!");
+
+  window.location.href = "https://www.google.com/";
+});
+
+document.getElementById("btnContinuarOuvindo").addEventListener("click", function () {
+  alert("A Rádio Sua Vez continuará tocando enquanto o navegador permitir. Você pode usar outras abas sem fechar a rádio.");
+});
 
 </script>
 </body>
