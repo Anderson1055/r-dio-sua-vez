@@ -319,9 +319,9 @@ document.getElementById("btnSairRadio").addEventListener("click", function () {
     audio.currentTime = 0;
   });
 
-  alert("Obrigado por ouvir a Rádio Sua Vez! Volte sempre!");
+ mostrarDespedidaRadio();
 
-  window.location.href = "https://www.google.com/";
+  
 });
 
 document.getElementById("btnContinuarOuvindo").addEventListener("click", function () {
@@ -329,5 +329,79 @@ document.getElementById("btnContinuarOuvindo").addEventListener("click", functio
 });
 
 </script>
+  
+<style>
+#despedidaRadio {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+#despedidaRadio .janela {
+  background: #111a32;
+  border: 2px solid #ffb347;
+  border-radius: 22px;
+  padding: 35px 25px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  color: white;
+  box-shadow: 0 15px 50px #0008;
+  animation: aparecerRadio .4s ease;
+}
+
+#despedidaRadio h2 {
+  color: #ffb347;
+  margin-bottom: 20px;
+}
+
+#despedidaRadio button {
+  background: linear-gradient(90deg, #ff914d, #ffd34d);
+  color: #172033;
+  border: none;
+  border-radius: 30px;
+  padding: 15px 28px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 20px;
+}
+
+@keyframes aparecerRadio {
+  from { opacity: 0; transform: scale(.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+</style>
+
+<div id="despedidaRadio" role="dialog"
+     aria-modal="true"
+     aria-labelledby="tituloDespedida">
+  <div class="janela">
+    <div style="font-size:42px">🎶</div>
+    <h2 id="tituloDespedida">
+      Obrigado pela sua companhia!
+    </h2>
+    <p>Foi um prazer ter você sintonizado
+       na Rádio Sua Vez!</p>
+    <p>A rádio dos novos talentos.
+       Volte sempre para descobrir
+       novas músicas e novos artistas!</p>
+    <button onclick="window.location.href='https://www.google.com/'">
+      Até a próxima! ❤️
+    </button>
+  </div>
+</div>
+
+<script>
+function mostrarDespedidaRadio() {
+  document.getElementById("despedidaRadio")
+    .style.display = "flex";
+}
+</script>
+
 </body>
 </html>
