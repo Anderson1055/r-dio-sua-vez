@@ -245,7 +245,7 @@ if (error || !user || user.id !== ADMIN_ID) {
     item.style.margin = "20px 0";
 
     const titulo = document.createElement("p");
-  titulo.textContent = musica.name.includes("6d9df376") ? "🎵 Meu Girassol — Anderson Picoloto" : "🎵 Um dia antes do sim — Anderson Picoloto";
+ titulo.textContent = "🎵 " + musica.name;
     
     const player = document.createElement("audio");
     player.controls = true;
