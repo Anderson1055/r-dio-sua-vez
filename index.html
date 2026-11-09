@@ -234,6 +234,11 @@ async function tocarMusica(indice) {
 let indiceRadio = 0;
 
 async function tocarRadio() {
+  const playerPlaylist = document.getElementById("playerPlaylist");
+if (playerPlaylist) {
+    playerPlaylist.pause();
+}
+
   if (musicas.length === 0) {
     await carregarMusicas();
   }
