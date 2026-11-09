@@ -205,6 +205,14 @@ if (erroCadastro) throw erroCadastro;
 
  
 async function listarMusicas() {
+  
+const { data: { user }, error } = await supabaseClient.auth.getUser();
+
+if (error || !user || user.id !== ADMIN_ID) {
+  alert("Acesso não autorizado! Faça login como administrador.");
+  return;
+}
+
   const lista = document.getElementById("listaMusicas");
   lista.textContent = "Carregando músicas...";
 
