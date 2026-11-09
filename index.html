@@ -164,7 +164,8 @@ async function carregarMusicas() {
     musicas = dados.map(m => ({
       titulo: m.titulo,
       artista: m.artista,
-      arquivo: m.arquivo_url
+     arquivo: m.arquivo_url,
+capa: m.capa_url
     }));
 
     lista.innerHTML = '<option value="">Escolha uma música</option>';
@@ -241,6 +242,17 @@ async function tocarRadio() {
   playerRadio.src = musica.arquivo;
   radioTocando.textContent =
     "🎵 Tocando: " + musica.titulo + " - " + musica.artista;
+
+const capaRadio = document.getElementById("capaMusica");
+const tituloRadio = document.getElementById("tituloMusica");
+
+if (capaRadio && musica.capa) {
+    capaRadio.src = musica.capa;
+}
+
+if (tituloRadio) {
+    tituloRadio.textContent = musica.titulo;
+}
 
   playerRadio.onended = function() {
     indiceRadio = (indiceRadio + 1) % musicas.length;
