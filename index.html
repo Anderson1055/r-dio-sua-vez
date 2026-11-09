@@ -46,7 +46,7 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 <h2>📻 Ouça a Rádio Sua Vez</h2>
 <p>O espaço onde novos talentos ganham voz.</p>
 
-<button onclick="tocarMusica(0)">▶ Ouvir ao vivo</button>
+<button onclick="tocarRadio()">▶ Ouvir ao vivo</button>
 
 
 <div id="radioAoVivo">
@@ -218,6 +218,40 @@ async function tocarMusica(indice) {
   } catch (erro) {
     alert("Não foi possível reproduzir a música.");
     console.error(erro);
+  }
+}
+
+let indiceRadio = 0;
+
+async function tocarRadio() {
+  if (musicas.length === 0) {
+    await carregarMusicas();
+  }
+
+  if (musicas.length === 0) {
+    alert("Ainda não há músicas aprovadas na rádio.");
+    return;
+  }
+
+  const playerRadio = document.getElementById("playerRadio");
+  const radioTocando = document.getElementById("radioTocando");
+
+  const musica = musicas[indiceRadio];
+
+  playerRadio.src = musica.arquivo;
+  radioTocando.textContent =
+    "🎵 Tocando: " + musica.titulo + " - " + musica.artista;
+
+  playerRadio.onended = function() {
+    indiceRadio = (indiceRadio + 1) % musicas.length;
+    tocarRadio();
+  };
+
+  try {
+    await playerRadio.play();
+  } catch (erro) {
+    console.error("Erro ao tocar rádio:", erro);
+    alert("Não foi possível reproduzir a música.");
   }
 }
 
