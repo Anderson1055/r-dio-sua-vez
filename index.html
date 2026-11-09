@@ -246,8 +246,13 @@ async function tocarRadio() {
 const capaRadio = document.getElementById("capaMusica");
 const tituloRadio = document.getElementById("tituloMusica");
 
-if (capaRadio && musica.capa) {
-    capaRadio.src = musica.capa;
+
+if (capaRadio) {
+    if (musica.capa) {
+        capaRadio.src = musica.capa;
+    } else {
+        console.warn("Capa não encontrada:", musica.titulo);
+    }
 }
 
 if (tituloRadio) {
