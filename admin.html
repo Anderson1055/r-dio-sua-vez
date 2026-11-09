@@ -216,14 +216,14 @@ if (error || !user || user.id !== ADMIN_ID) {
   const lista = document.getElementById("listaMusicas");
   lista.textContent = "Carregando músicas...";
 
-  const { data: arquivos, error } = await supabaseClient.storage
+  const { data: arquivos, error: erroArquivos } = await supabaseClient.storage
     .from("musicas")
     .list("", { limit: 100 });
 
-  if (error) {
-    lista.textContent = "Erro: " + error.message;
-    return;
-  }
+  if (erroArquivos) {
+  lista.textContent = "Erro: " + erroArquivos.message;
+  return;
+}
 
   lista.replaceChildren();
 
