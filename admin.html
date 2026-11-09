@@ -94,6 +94,11 @@ small{color:#bbb}
 
     <button type="submit">Entrar</button>
   </form>
+  
+<button type="button" id="btnSairAdmin" style="margin-top:15px;">
+  🚪 Sair da administração
+</button>
+
 
   <p id="mensagemLogin"></p>
 </section>
@@ -107,6 +112,18 @@ small{color:#bbb}
     SUPABASE_URL,
     SUPABASE_KEY
   );
+  
+document.getElementById("btnSairAdmin").addEventListener("click", async function () {
+  const { error } = await supabaseClient.auth.signOut();
+
+  if (error) {
+    alert("Erro ao sair: " + error.message);
+    return;
+  }
+
+  window.location.reload();
+});
+
   const ADMIN_ID = "54fddf03-afc6-464e-b815-9d46d6c2f01c";
 document.getElementById("formLogin").addEventListener("submit", async function(event) {
   event.preventDefault();
