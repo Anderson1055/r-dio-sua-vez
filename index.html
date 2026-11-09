@@ -148,7 +148,7 @@ const supabaseKey = "sb_publishable_a5QjPd8KUj3Gh35h_mP-Dg_-E7TtGtY";
 async function carregarMusicas() {
   try {
     const resposta = await fetch(
-      `${supabaseUrl}/rest/v1/musicas?select=titulo,artista,arquivo_url&aprovada=eq.true`,
+      `${supabaseUrl}/rest/v1/musicas?select=titulo,artista,arquivo_url,capa_url&aprovada=eq.true
       {
         headers: {
           apikey: supabaseKey,
