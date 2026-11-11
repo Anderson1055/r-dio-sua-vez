@@ -21,7 +21,7 @@ h2{color:#ffbd35}
 button,.btn{background:linear-gradient(90deg,#e27b0b,#ffca46);color:#15100a;border:0;border-radius:30px;padding:14px 24px;font-weight:bold;cursor:pointer;text-decoration:none;display:inline-block}
 button:hover,.btn:hover{filter:brightness(1.12)}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
-.genre{background:#20263a;border:1px solid #39415a;border-radius:12px;text-align:center;padding:20px;font-weight:bold;color:white;cursor:pointer}.genre:hover,.genre[aria-pressed="true"]{background:#354568;border-color:#ffbd35}.faixa{display:block;width:100%;margin:8px 0;text-align:left;background:#20263a;color:white;border:1px solid #39415a;border-radius:12px}.faixa:hover{border-color:#ffbd35}#listaGenero{margin-top:18px}#listaGenero[hidden]{display:none}
+.genre{background:#20263a;border:1px solid #39415a;border-radius:12px;text-align:center;padding:20px;font-weight:bold;color:white;cursor:pointer}.genre:hover,.genre[aria-pressed="true"]{background:#354568;border-color:#ffbd35}.faixa{display:block;width:100%;margin:8px 0;text-align:left;background:#20263a;color:white;border:1px solid #39415a;border-radius:12px}.faixa:hover{border-color:#ffbd35}#listaGenero{margin-top:18px}#listaGenero[hidden]{display:none}.pasta-musicas{background:#0c1222;border:1px solid #39415a;border-radius:14px;padding:15px;max-width:680px}.pasta-topo{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.pasta-topo button{padding:9px 15px}.busca-musicas{width:100%;margin:12px 0;padding:12px;border-radius:10px;border:1px solid #52607b;background:#171f33;color:#fff;font-size:16px}.rolagem-musicas{max-height:320px;overflow-y:auto;overscroll-behavior:contain;border:1px solid #303b55;border-radius:10px}.faixa{padding:10px 12px;margin:0!important;border-radius:0!important;border:0!important;border-bottom:1px solid #39415a!important;font-size:14px;line-height:1.4}.faixa strong,.faixa small{display:block}.faixa small{color:#bbc4d6;font-weight:normal}.faixa.ativa{background:#354568;border-left:3px solid #ffbd35!important}.contagem-musicas{font-size:13px;color:#bbc4d6;margin:4px 0 10px}.pasta-vazia{padding:15px;color:#d5d9e5}
 #aviso{color:#ffd88c}
 footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 </style>
@@ -89,7 +89,7 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 <button class="genre" type="button" data-genero="MPB" aria-pressed="false">🎼 MPB</button>
 <button class="genre" type="button" data-genero="Internacional" aria-pressed="false">🌎 Internacional</button>
 </div>
-<div id="listaGenero" hidden aria-live="polite"><h3 id="nomeGenero"></h3><div id="faixasGenero"></div></div>
+<div id="listaGenero" hidden class="pasta-musicas"><div class="pasta-topo"><h3 id="nomeGenero" style="margin:0"></h3><button type="button" id="fecharGenero">← Voltar aos estilos</button></div><input id="buscaGenero" class="busca-musicas" type="search" placeholder="🔎 Buscar música ou artista..." aria-label="Buscar música ou artista"><p id="contagemGenero" class="contagem-musicas" aria-live="polite"></p><div id="faixasGenero" class="rolagem-musicas"></div></div>
 </section>
 
 <section class="card" id="programacao">
@@ -142,102 +142,99 @@ const radio = document.getElementById('playerRadio');
 const aviso = document.getElementById('aviso');
 let musicas = [];
 let indiceRadio = 0;
-let radioAtiva = false;
+let modoRadio = false;
 let carregamentoEmAndamento = null;
+let tocandoId = null;
+const buscaGenero = document.getElementById('buscaGenero');
+const contagemGenero = document.getElementById('contagemGenero');
+const generosBotoes = document.querySelectorAll('[data-genero]');
+function normalizar(valor) {return String(valor||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
 function informarRadio(m) {
-  document.getElementById('tituloMusica').textContent = m ? m.titulo : 'Nenhuma música aprovada disponível';
+  document.getElementById('tituloMusica').textContent = m ? m.titulo : 'Aguardando música aprovada...';
   document.getElementById('artistaRadio').textContent = m ? '🎤 ' + m.artista : '🎤 Aguardando artista...';
-  document.getElementById('radioTocando').textContent = m ? '🎵 Tocando: ' + m.titulo + ' - ' + m.artista : 'Aguardando músicas aprovadas...';
+  document.getElementById('radioTocando').textContent = m ? '🎵 Tocando: ' + m.titulo + ' — ' + m.artista : 'Aguardando reprodução...';
   const capa = document.getElementById('capaMusica');
-  if (m && m.capa) { capa.src = m.capa; capa.style.display = 'inline-block'; }
-  else { capa.removeAttribute('src'); capa.style.display = 'none'; }
+  if (m && m.capa) {capa.src=m.capa;capa.style.display='inline-block';}
+  else {capa.removeAttribute('src');capa.style.display='none';}
 }
 async function carregarMusicas() {
   if (carregamentoEmAndamento) return carregamentoEmAndamento;
   carregamentoEmAndamento = (async () => {
     try {
-      const url = supabaseUrl + '/rest/v1/musicas?select=*&aprovada=eq.true&excluida_em=is.null&order=id.asc';
-      const resposta = await fetch(url, {headers:{apikey:supabaseKey, Authorization:'Bearer '+supabaseKey},cache:'no-store'});
+      const url = supabaseUrl + '/rest/v1/musicas?select=*&aprovada=eq.true&excluida_em=is.null&order=id.asc&limit=1000';
+      const resposta = await fetch(url,{headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey},cache:'no-store'});
       if (!resposta.ok) throw new Error('Falha ao consultar músicas (HTTP '+resposta.status+').');
       const dados = await resposta.json();
-      const novas = dados.filter(m => m.arquivo_url && !['rejeitada','rejeitado','aguardando','pendente'].includes(String(m.status||'').toLowerCase().trim()))
-        .map(m => ({id:m.id,titulo:m.titulo||'Sem título',artista:m.artista||'Artista não informado',arquivo:m.arquivo_url,capa:m.capa_url,genero:String(m.genero||m.estilo||m.estilo_musical||'').trim()}));
-      const faixaAnterior = radioAtiva ? radio.dataset.musicaId : null;
-      musicas = novas;
-      if (faixaAnterior && !musicas.some(m => String(m.id) === faixaAnterior)) {
-        radio.pause();
-        radio.removeAttribute('src');
-        radio.load();
-        radioAtiva = false;
-        radio.dataset.musicaId = '';
-        indiceRadio = 0;
-        informarRadio(null);
+      musicas = dados.filter(m=>m.arquivo_url && !['rejeitada','rejeitado','aguardando','pendente'].includes(normalizar(m.status)))
+        .map(m=>({id:m.id,titulo:m.titulo||'Sem título',artista:m.artista||'Artista não informado',arquivo:m.arquivo_url,capa:m.capa_url,genero:String(m.genero||m.estilo||m.estilo_musical||'').trim()}));
+      if (tocandoId !== null && !musicas.some(m=>String(m.id)===String(tocandoId))) {
+        radio.pause();radio.removeAttribute('src');radio.load();tocandoId=null;modoRadio=false;informarRadio(null);
       }
-       if (generoAtual) mostrarGenero(generoAtual);
-      if (!musicas.length) {
-        lista.replaceChildren(new Option('Nenhuma música aprovada disponível',''));
-        if (radioAtiva) { radio.pause();radio.removeAttribute('src');radio.load();radioAtiva=false; }
-        informarRadio(null);
-        aviso.textContent='Ainda não há músicas aprovadas disponíveis.';
-      } else {
-        aviso.textContent='';
-        if (!radioAtiva) informarRadio(null);
-      }
+      if (generoAtual) renderizarGenero();
+      aviso.textContent=musicas.length?'':'Ainda não há músicas aprovadas disponíveis.';
       return true;
-    } catch(e) {
-      console.error('Erro ao carregar músicas:',e);
-      aviso.textContent='Não foi possível atualizar a lista: '+e.message;
-      return false;
-    }
+    } catch(e) {console.error(e);aviso.textContent='Não foi possível atualizar a lista: '+e.message;return false;}
   })();
   try {return await carregamentoEmAndamento;} finally {carregamentoEmAndamento=null;}
 }
-function normalizar(valor) {return String(valor||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
 function mostrarGenero(genero) {
-  generoAtual = genero;
-  painelGenero.hidden = false;
-  document.getElementById('nomeGenero').textContent = '🎵 ' + genero;
-  document.querySelectorAll('[data-genero]').forEach(b => b.setAttribute('aria-pressed',String(b.dataset.genero===genero)));
+  generoAtual=genero;buscaGenero.value='';painelGenero.hidden=false;
+  document.getElementById('nomeGenero').textContent='📂 '+genero;
+  generosBotoes.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.genero===genero)));
+  renderizarGenero();
+  painelGenero.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function renderizarGenero() {
+  if (!generoAtual) return;
+  const termo=normalizar(buscaGenero.value);
+  const filtradas=musicas.filter(m=>normalizar(m.genero)===normalizar(generoAtual) && normalizar(m.titulo+' '+m.artista).includes(termo))
+    .sort((a,b)=>a.titulo.localeCompare(b.titulo,'pt-BR',{sensitivity:'base'}));
+  contagemGenero.textContent=filtradas.length+' música(s) encontrada(s)';
   faixasGenero.replaceChildren();
-  const filtradas = musicas.filter(m => normalizar(m.genero) === normalizar(genero));
   if (!filtradas.length) {
-    const p=document.createElement('p');
-    p.textContent='Nenhuma música aprovada cadastrada neste estilo ainda.';
-    faixasGenero.append(p);
+    const p=document.createElement('p');p.className='pasta-vazia';
+    p.textContent=termo?'Nenhuma música corresponde à pesquisa.':'Nenhuma música disponível neste estilo ainda.';
+    faixasGenero.append(p);return;
   }
-  filtradas.forEach(m => {
-    const botao=document.createElement('button');
-    botao.type='button';botao.className='faixa';
-    botao.textContent='▶ '+m.titulo+' — '+m.artista;
-    botao.addEventListener('click',async()=>{
-      radio.pause();radioAtiva=false;
-      radio.src=m.arquivo;radio.dataset.musicaId=String(m.id);
-      informarRadio(m);
-      document.getElementById('playerRadio').scrollIntoView({behavior:'smooth',block:'center'});
-      try {await radio.play();aviso.textContent='';}
-      catch(e){aviso.textContent='Aperte o play para ouvir esta música.';}
-    });
-    faixasGenero.append(botao);
+  const fragmento=document.createDocumentFragment();
+  filtradas.forEach(m=>{
+    const botao=document.createElement('button');botao.type='button';botao.className='faixa';
+    if(String(tocandoId)===String(m.id))botao.classList.add('ativa');
+    const nome=document.createElement('strong');nome.textContent='▶ '+m.titulo;
+    const artista=document.createElement('small');artista.textContent=m.artista;
+    botao.append(nome,artista);
+    botao.addEventListener('click',()=>selecionarMusica(m,false));fragmento.append(botao);
   });
+  faixasGenero.append(fragmento);
 }
-document.querySelectorAll('[data-genero]').forEach(b=>b.addEventListener('click',()=>mostrarGenero(b.dataset.genero)));
-async function tocarRadio(){
-  await carregarMusicas();
+async function selecionarMusica(m,automatica) {
+  if(!m?.arquivo)return;
+  radio.pause();modoRadio=automatica;tocandoId=m.id;
+  radio.src=m.arquivo;radio.dataset.musicaId=String(m.id);
+  informarRadio(m);if(generoAtual)renderizarGenero();
+  try {await radio.play();aviso.textContent='';}
+  catch(e) {aviso.textContent='Clique no play do player para ouvir a música.';}
+  document.getElementById('playerRadio').scrollIntoView({behavior:'smooth',block:'center'});
+}
+async function tocarRadio() {
+  const ok=await carregarMusicas();if(!ok)return;
   if(!musicas.length){aviso.textContent='Ainda não há músicas aprovadas para tocar.';return;}
-  if(indiceRadio>=musicas.length)indiceRadio=0;
-  const m=musicas[indiceRadio];
-  if(!m?.arquivo){aviso.textContent='Arquivo de áudio indisponível.';return;}
-  radioAtiva=true;
-  radio.src=m.arquivo;
-  radio.dataset.musicaId=String(m.id);
-  informarRadio(m);
-  try{await radio.play();aviso.textContent='';}
-  catch(e){radioAtiva=false;aviso.textContent='Não foi possível iniciar automaticamente. Aperte o play do áudio.';console.error(e);}
+  const atual=musicas.findIndex(m=>String(m.id)===String(tocandoId));
+  indiceRadio=atual>=0?atual:0;
+  await selecionarMusica(musicas[indiceRadio],true);
 }
-radio.addEventListener('ended',()=>{if(!radioAtiva||!musicas.length)return;const pos=musicas.findIndex(m=>String(m.id)===radio.dataset.musicaId);indiceRadio=(pos+1)%musicas.length;tocarRadio();});
-radio.addEventListener('play',()=>{radioAtiva=true;});
+generosBotoes.forEach(b=>b.addEventListener('click',()=>mostrarGenero(b.dataset.genero)));
+buscaGenero.addEventListener('input',renderizarGenero);
+document.getElementById('fecharGenero').addEventListener('click',()=>{
+  generoAtual=null;painelGenero.hidden=true;generosBotoes.forEach(b=>b.setAttribute('aria-pressed','false'));
+});
+radio.addEventListener('ended',()=>{
+  if(!modoRadio||!musicas.length)return;
+  const pos=musicas.findIndex(m=>String(m.id)===String(tocandoId));
+  indiceRadio=(pos+1)%musicas.length;selecionarMusica(musicas[indiceRadio],true);
+});
 document.getElementById('btnSairRadio').addEventListener('click',()=>{
-  radioAtiva=false;
+  modoRadio=false;
   document.querySelectorAll('audio').forEach(a=>{a.pause();a.currentTime=0;});
   mostrarDespedidaRadio();
 });
