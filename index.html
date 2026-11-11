@@ -21,7 +21,7 @@ h2{color:#ffbd35}
 button,.btn{background:linear-gradient(90deg,#e27b0b,#ffca46);color:#15100a;border:0;border-radius:30px;padding:14px 24px;font-weight:bold;cursor:pointer;text-decoration:none;display:inline-block}
 button:hover,.btn:hover{filter:brightness(1.12)}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
-.genre{background:#20263a;border-radius:12px;text-align:center;padding:20px;font-weight:bold}
+.genre{background:#20263a;border:1px solid #39415a;border-radius:12px;text-align:center;padding:20px;font-weight:bold;color:white;cursor:pointer}.genre:hover,.genre[aria-pressed="true"]{background:#354568;border-color:#ffbd35}.faixa{display:block;width:100%;margin:8px 0;text-align:left;background:#20263a;color:white;border:1px solid #39415a;border-radius:12px}.faixa:hover{border-color:#ffbd35}#listaGenero{margin-top:18px}#listaGenero[hidden]{display:none}
 #aviso{color:#ffd88c}
 footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 </style>
@@ -78,17 +78,18 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 <section class="card" id="estilos">
 <h2>🎵 Todos os estilos musicais</h2>
 <div class="grid">
-<div class="genre">🤠 Sertanejo</div>
-<div class="genre">❤️ Romântico</div>
-<div class="genre">🎧 Pop</div>
-<div class="genre">✨ Gospel</div>
-<div class="genre">🪗 Forró</div>
-<div class="genre">🥁 Pagode</div>
-<div class="genre">🎸 Rock</div>
-<div class="genre">🎛️ Funk</div>
-<div class="genre">🎼 MPB</div>
-<div class="genre">🌎 Internacional</div>
+<button class="genre" type="button" data-genero="Sertanejo" aria-pressed="false">🤠 Sertanejo</button>
+<button class="genre" type="button" data-genero="Romântico" aria-pressed="false">❤️ Romântico</button>
+<button class="genre" type="button" data-genero="Pop" aria-pressed="false">🎧 Pop</button>
+<button class="genre" type="button" data-genero="Gospel" aria-pressed="false">✨ Gospel</button>
+<button class="genre" type="button" data-genero="Forró" aria-pressed="false">🪗 Forró</button>
+<button class="genre" type="button" data-genero="Pagode" aria-pressed="false">🥁 Pagode</button>
+<button class="genre" type="button" data-genero="Rock" aria-pressed="false">🎸 Rock</button>
+<button class="genre" type="button" data-genero="Funk" aria-pressed="false">🎛️ Funk</button>
+<button class="genre" type="button" data-genero="MPB" aria-pressed="false">🎼 MPB</button>
+<button class="genre" type="button" data-genero="Internacional" aria-pressed="false">🌎 Internacional</button>
 </div>
+<div id="listaGenero" hidden aria-live="polite"><h3 id="nomeGenero"></h3><div id="faixasGenero"></div></div>
 </section>
 
 <section class="card" id="programacao">
@@ -120,28 +121,7 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
   </div>
 </section>
 
-<section class="card" id="playlist">
-  <h2>🎶 Escolha sua música</h2>
-  <p>Rádio Sua Vez — A rádio dos novos talentos</p>
 
-  <select id="escolherMusica" style="width:100%;padding:12px;border-radius:10px">
-<option value="">Nenhuma música disponível</option>
-  </select>
-
- <p id="tocandoAgora">🎵 Aguardando músicas...</p>
-
-  <audio id="playerPlaylist" controls style="width:100%">
-    Seu navegador não suporta áudio.
-  </audio>
-
-<div style="text-align:center; margin-top:15px;">
-  <img id="capaPlaylist"
-       alt="Capa da música escolhida"
-       style="width:80px; max-width:100%; border-radius:12px; display:none;">
-</div>
-
-  
-</section>
 
   </main>
 <footer>
@@ -153,10 +133,12 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 'use strict';
 const supabaseUrl = 'https://utspktlfxeqwrpynnesc.supabase.co';
 const supabaseKey = 'sb_publishable_a5QjPd8KUj3Gh35h_mP-Dg_-E7TtGtY';
-const lista = document.getElementById('escolherMusica');
-const player = document.getElementById('playerPlaylist');
+const painelGenero = document.getElementById('listaGenero');
+const faixasGenero = document.getElementById('faixasGenero');
+let generoAtual = null;
+
 const radio = document.getElementById('playerRadio');
-const tocando = document.getElementById('tocandoAgora');
+
 const aviso = document.getElementById('aviso');
 let musicas = [];
 let indiceRadio = 0;
@@ -174,13 +156,12 @@ async function carregarMusicas() {
   if (carregamentoEmAndamento) return carregamentoEmAndamento;
   carregamentoEmAndamento = (async () => {
     try {
-      const url = supabaseUrl + '/rest/v1/musicas?select=id,titulo,artista,arquivo_url,capa_url,status,aprovada,excluida_em&aprovada=eq.true&excluida_em=is.null&order=id.asc';
+      const url = supabaseUrl + '/rest/v1/musicas?select=*&aprovada=eq.true&excluida_em=is.null&order=id.asc';
       const resposta = await fetch(url, {headers:{apikey:supabaseKey, Authorization:'Bearer '+supabaseKey},cache:'no-store'});
       if (!resposta.ok) throw new Error('Falha ao consultar músicas (HTTP '+resposta.status+').');
       const dados = await resposta.json();
       const novas = dados.filter(m => m.arquivo_url && !['rejeitada','rejeitado','aguardando','pendente'].includes(String(m.status||'').toLowerCase().trim()))
-        .map(m => ({id:m.id,titulo:m.titulo||'Sem título',artista:m.artista||'Artista não informado',arquivo:m.arquivo_url,capa:m.capa_url}));
-      const selecionada = lista.value === '' ? null : musicas[Number(lista.value)];
+        .map(m => ({id:m.id,titulo:m.titulo||'Sem título',artista:m.artista||'Artista não informado',arquivo:m.arquivo_url,capa:m.capa_url,genero:String(m.genero||m.estilo||m.estilo_musical||'').trim()}));
       const faixaAnterior = radioAtiva ? radio.dataset.musicaId : null;
       musicas = novas;
       if (faixaAnterior && !musicas.some(m => String(m.id) === faixaAnterior)) {
@@ -192,12 +173,7 @@ async function carregarMusicas() {
         indiceRadio = 0;
         informarRadio(null);
       }
-      lista.replaceChildren(new Option('Escolha uma música',''));
-      musicas.forEach((m,i)=>lista.add(new Option(m.titulo+' - '+m.artista,String(i))));
-      if (selecionada) {
-        const novoIndice = musicas.findIndex(m=>m.id===selecionada.id);
-        if(novoIndice>=0) lista.value=String(novoIndice);
-      }
+       if (generoAtual) mostrarGenero(generoAtual);
       if (!musicas.length) {
         lista.replaceChildren(new Option('Nenhuma música aprovada disponível',''));
         if (radioAtiva) { radio.pause();radio.removeAttribute('src');radio.load();radioAtiva=false; }
@@ -216,22 +192,36 @@ async function carregarMusicas() {
   })();
   try {return await carregamentoEmAndamento;} finally {carregamentoEmAndamento=null;}
 }
-function mostrarEscolhida(m) {
-  tocando.textContent='🎵 Tocando: '+m.titulo+' - '+m.artista;
-  const capa=document.getElementById('capaPlaylist');
-  if(m.capa){capa.src=m.capa;capa.style.display='inline-block';}
-  else {capa.removeAttribute('src');capa.style.display='none';}
+function normalizar(valor) {return String(valor||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
+function mostrarGenero(genero) {
+  generoAtual = genero;
+  painelGenero.hidden = false;
+  document.getElementById('nomeGenero').textContent = '🎵 ' + genero;
+  document.querySelectorAll('[data-genero]').forEach(b => b.setAttribute('aria-pressed',String(b.dataset.genero===genero)));
+  faixasGenero.replaceChildren();
+  const filtradas = musicas.filter(m => normalizar(m.genero) === normalizar(genero));
+  if (!filtradas.length) {
+    const p=document.createElement('p');
+    p.textContent='Nenhuma música aprovada cadastrada neste estilo ainda.';
+    faixasGenero.append(p);
+  }
+  filtradas.forEach(m => {
+    const botao=document.createElement('button');
+    botao.type='button';botao.className='faixa';
+    botao.textContent='▶ '+m.titulo+' — '+m.artista;
+    botao.addEventListener('click',async()=>{
+      radio.pause();radioAtiva=false;
+      radio.src=m.arquivo;radio.dataset.musicaId=String(m.id);
+      informarRadio(m);
+      document.getElementById('playerRadio').scrollIntoView({behavior:'smooth',block:'center'});
+      try {await radio.play();aviso.textContent='';}
+      catch(e){aviso.textContent='Aperte o play para ouvir esta música.';}
+    });
+    faixasGenero.append(botao);
+  });
 }
-lista.addEventListener('change',async function(){
-  if(this.value==='')return;
-  const m=musicas[Number(this.value)];if(!m)return;
-  radioAtiva=false;radio.pause();
-  player.src=m.arquivo;mostrarEscolhida(m);
-  try{await player.play();}catch(e){aviso.textContent='Clique em reproduzir para ouvir a música.';}
-});
-player.addEventListener('play',()=>{radioAtiva=false;radio.pause();});
+document.querySelectorAll('[data-genero]').forEach(b=>b.addEventListener('click',()=>mostrarGenero(b.dataset.genero)));
 async function tocarRadio(){
-  player.pause();
   await carregarMusicas();
   if(!musicas.length){aviso.textContent='Ainda não há músicas aprovadas para tocar.';return;}
   if(indiceRadio>=musicas.length)indiceRadio=0;
@@ -244,8 +234,8 @@ async function tocarRadio(){
   try{await radio.play();aviso.textContent='';}
   catch(e){radioAtiva=false;aviso.textContent='Não foi possível iniciar automaticamente. Aperte o play do áudio.';console.error(e);}
 }
-radio.addEventListener('ended',()=>{if(!radioAtiva)return;indiceRadio=(indiceRadio+1)%musicas.length;tocarRadio();});
-radio.addEventListener('play',()=>{player.pause();radioAtiva=true;});
+radio.addEventListener('ended',()=>{if(!radioAtiva||!musicas.length)return;const pos=musicas.findIndex(m=>String(m.id)===radio.dataset.musicaId);indiceRadio=(pos+1)%musicas.length;tocarRadio();});
+radio.addEventListener('play',()=>{radioAtiva=true;});
 document.getElementById('btnSairRadio').addEventListener('click',()=>{
   radioAtiva=false;
   document.querySelectorAll('audio').forEach(a=>{a.pause();a.currentTime=0;});
