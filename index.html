@@ -107,14 +107,13 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 <section class="card">
   <h2>🎵 Tocando na Rádio Sua Vez</h2>
   <div style="text-align:center;padding:20px;background:linear-gradient(135deg,#17264a,#392044);border-radius:16px">
-  <img id="capaMusica" src="Imagem%20do%20ChatGPT%207%20de%20nov.%20de%202026%2C%2000_44_30.jpg" alt="Capa Meu Girassol" style="width:220px;max-width:100%;border-radius:15px;">
+  <img id="capaMusica" alt="Capa da música atual" style="width:220px;max-width:100%;border-radius:15px;display:none;">
     
-<h2 id="tituloMusica" style="margin:10px 0">Meu Girassol</h2>
+<h2 id="tituloMusica" style="margin:10px 0">Aguardando música aprovada...</h2>
   
-    <p>🎤 Anderson Picoloto</p>
+    <p id="artistaRadio">🎤 Aguardando artista...</p>
     <p style="color:#ffda59">Rádio Sua Vez</p>
    <audio id="playerRadio" controls style="width:100%">
-      <source src="Meu%20Girassol%20%28Remix%29.mp3" type="audio/mpeg">
       Seu navegador não suporta áudio.
     </audio>
     <p style="font-size:13px">🎶 A rádio dos novos talentos</p>
@@ -151,183 +150,112 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 <p>© 2026 Rádio Sua Vez</p>
 </footer>
 <script>
-const lista = document.getElementById("escolherMusica");
-const player = document.getElementById("playerPlaylist");
-const tocando = document.getElementById("tocandoAgora");
-
-
+'use strict';
+const supabaseUrl = 'https://utspktlfxeqwrpynnesc.supabase.co';
+const supabaseKey = 'sb_publishable_a5QjPd8KUj3Gh35h_mP-Dg_-E7TtGtY';
+const lista = document.getElementById('escolherMusica');
+const player = document.getElementById('playerPlaylist');
+const radio = document.getElementById('playerRadio');
+const tocando = document.getElementById('tocandoAgora');
+const aviso = document.getElementById('aviso');
 let musicas = [];
-
-const supabaseUrl = "https://utspktlfxeqwrpynnesc.supabase.co";
-const supabaseKey = "sb_publishable_a5QjPd8KUj3Gh35h_mP-Dg_-E7TtGtY";
-
-async function carregarMusicas() {
-  try {
-    const resposta = await fetch(
-      `${supabaseUrl}/rest/v1/musicas?select=id,titulo,artista,arquivo_url,capa_url&aprovada=eq.true`,
-      {
-        headers: {
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`
-        }
-      }
-    );
-
-    if (!resposta.ok) throw new Error("Erro ao buscar músicas");
-
-    const dados = await resposta.json();
-
-    musicas = dados.map(m => ({
-      titulo: m.titulo,
-      artista: m.artista,
-     arquivo: m.arquivo_url,
-capa: m.capa_url
-    }));
-
-    lista.innerHTML = '<option value="">Escolha uma música</option>';
-
-    musicas.forEach((musica, indice) => {
-      const opcao = document.createElement("option");
-      opcao.value = indice;
-      opcao.textContent = musica.titulo + " - " + musica.artista;
-      lista.appendChild(opcao);
-    });
-  } catch (erro) {
-    console.error("Erro ao carregar músicas:", erro);
-  }
-}
-
-
-carregarMusicas();
-setInterval(carregarMusicas, 10000);
-
-
-lista.addEventListener("change", function() {
-  if (this.value === "") return;
-  const musica = musicas[Number(this.value)];
-  player.src = musica.arquivo;
-  
-const capa = document.getElementById("capaPlaylist");
-capa.src = musica.capa || "";
-capa.style.display = musica.capa ? "inline-block" : "none";
-
-  
-document.getElementById("playerRadio").pause();
-
-  tocando.textContent = "🎵 Tocando: " + musica.titulo + " - " + musica.artista;
-  player.play().catch(() => {});
-});
-
-document.getElementById("playerPlaylist")
-  .addEventListener("play", function() {
-    const radio = document.getElementById("playerRadio");
-    if (radio && !radio.paused) {
-      radio.pause();
-    }
-  });
-
-  
-  
-async function tocarMusica(indice) {
-  if (musicas.length === 0) {
-    await carregarMusicas();
-  }
-
-  if (musicas.length === 0) {
-    alert("Ainda não há músicas aprovadas para tocar.");
-    return;
-  }
-
-  const musica = musicas[indice];
-
-  if (!musica || !musica.arquivo) {
-    alert("Não foi possível encontrar o áudio.");
-    return;
-  }
-
-  player.src = musica.arquivo;
-  tocando.textContent = "🎵 Tocando: " +
-    musica.titulo + " - " + musica.artista;
-
-  try {
-    await player.play();
-  } catch (erro) {
-    alert("Não foi possível reproduzir a música.");
-    console.error(erro);
-  }
-}
-
 let indiceRadio = 0;
-
-async function tocarRadio() {
-  const playerPlaylist = document.getElementById("playerPlaylist");
-if (playerPlaylist) {
-    playerPlaylist.pause();
+let radioAtiva = false;
+let carregamentoEmAndamento = null;
+function informarRadio(m) {
+  document.getElementById('tituloMusica').textContent = m ? m.titulo : 'Nenhuma música aprovada disponível';
+  document.getElementById('artistaRadio').textContent = m ? '🎤 ' + m.artista : '🎤 Aguardando artista...';
+  document.getElementById('radioTocando').textContent = m ? '🎵 Tocando: ' + m.titulo + ' - ' + m.artista : 'Aguardando músicas aprovadas...';
+  const capa = document.getElementById('capaMusica');
+  if (m && m.capa) { capa.src = m.capa; capa.style.display = 'inline-block'; }
+  else { capa.removeAttribute('src'); capa.style.display = 'none'; }
 }
-
-  if (musicas.length === 0) {
-    await carregarMusicas();
-  }
-
-  if (musicas.length === 0) {
-    alert("Ainda não há músicas aprovadas na rádio.");
-    return;
-  }
-
-  const playerRadio = document.getElementById("playerRadio");
-  const radioTocando = document.getElementById("radioTocando");
-
-  const musica = musicas[indiceRadio];
-
-  playerRadio.src = musica.arquivo;
-  radioTocando.textContent =
-    "🎵 Tocando: " + musica.titulo + " - " + musica.artista;
-
-const capaRadio = document.getElementById("capaMusica");
-const tituloRadio = document.getElementById("tituloMusica");
-
-
-if (capaRadio) {
-    if (musica.capa) {
-        capaRadio.src = musica.capa;
-    } else {
-        console.warn("Capa não encontrada:", musica.titulo);
+async function carregarMusicas() {
+  if (carregamentoEmAndamento) return carregamentoEmAndamento;
+  carregamentoEmAndamento = (async () => {
+    try {
+      const url = supabaseUrl + '/rest/v1/musicas?select=id,titulo,artista,arquivo_url,capa_url,status,aprovada,excluida_em&aprovada=eq.true&excluida_em=is.null&order=id.asc';
+      const resposta = await fetch(url, {headers:{apikey:supabaseKey, Authorization:'Bearer '+supabaseKey},cache:'no-store'});
+      if (!resposta.ok) throw new Error('Falha ao consultar músicas (HTTP '+resposta.status+').');
+      const dados = await resposta.json();
+      const novas = dados.filter(m => m.arquivo_url && !['rejeitada','rejeitado','aguardando','pendente'].includes(String(m.status||'').toLowerCase().trim()))
+        .map(m => ({id:m.id,titulo:m.titulo||'Sem título',artista:m.artista||'Artista não informado',arquivo:m.arquivo_url,capa:m.capa_url}));
+      const selecionada = lista.value === '' ? null : musicas[Number(lista.value)];
+      const faixaAnterior = radioAtiva ? radio.dataset.musicaId : null;
+      musicas = novas;
+      if (faixaAnterior && !musicas.some(m => String(m.id) === faixaAnterior)) {
+        radio.pause();
+        radio.removeAttribute('src');
+        radio.load();
+        radioAtiva = false;
+        radio.dataset.musicaId = '';
+        indiceRadio = 0;
+        informarRadio(null);
+      }
+      lista.replaceChildren(new Option('Escolha uma música',''));
+      musicas.forEach((m,i)=>lista.add(new Option(m.titulo+' - '+m.artista,String(i))));
+      if (selecionada) {
+        const novoIndice = musicas.findIndex(m=>m.id===selecionada.id);
+        if(novoIndice>=0) lista.value=String(novoIndice);
+      }
+      if (!musicas.length) {
+        lista.replaceChildren(new Option('Nenhuma música aprovada disponível',''));
+        if (radioAtiva) { radio.pause();radio.removeAttribute('src');radio.load();radioAtiva=false; }
+        informarRadio(null);
+        aviso.textContent='Ainda não há músicas aprovadas disponíveis.';
+      } else {
+        aviso.textContent='';
+        if (!radioAtiva) informarRadio(null);
+      }
+      return true;
+    } catch(e) {
+      console.error('Erro ao carregar músicas:',e);
+      aviso.textContent='Não foi possível atualizar a lista: '+e.message;
+      return false;
     }
+  })();
+  try {return await carregamentoEmAndamento;} finally {carregamentoEmAndamento=null;}
 }
-
-if (tituloRadio) {
-    tituloRadio.textContent = musica.titulo;
+function mostrarEscolhida(m) {
+  tocando.textContent='🎵 Tocando: '+m.titulo+' - '+m.artista;
+  const capa=document.getElementById('capaPlaylist');
+  if(m.capa){capa.src=m.capa;capa.style.display='inline-block';}
+  else {capa.removeAttribute('src');capa.style.display='none';}
 }
-
-  playerRadio.onended = function() {
-    indiceRadio = (indiceRadio + 1) % musicas.length;
-    tocarRadio();
-  };
-
-  try {
-    await playerRadio.play();
-  } catch (erro) {
-    console.error("Erro ao tocar rádio:", erro);
-    alert("Não foi possível reproduzir a música.");
-  }
-}
-
-document.getElementById("btnSairRadio").addEventListener("click", function () {
-  const audios = document.querySelectorAll("audio");
-
-  audios.forEach(audio => {
-    audio.pause();
-    audio.currentTime = 0;
-  });
-
- mostrarDespedidaRadio();
-
-  
+lista.addEventListener('change',async function(){
+  if(this.value==='')return;
+  const m=musicas[Number(this.value)];if(!m)return;
+  radioAtiva=false;radio.pause();
+  player.src=m.arquivo;mostrarEscolhida(m);
+  try{await player.play();}catch(e){aviso.textContent='Clique em reproduzir para ouvir a música.';}
 });
-
-document.getElementById("btnContinuarOuvindo").addEventListener("click", function () {
-    document.getElementById("avisoContinuarOuvindo").style.display = "flex";
+player.addEventListener('play',()=>{radioAtiva=false;radio.pause();});
+async function tocarRadio(){
+  player.pause();
+  await carregarMusicas();
+  if(!musicas.length){aviso.textContent='Ainda não há músicas aprovadas para tocar.';return;}
+  if(indiceRadio>=musicas.length)indiceRadio=0;
+  const m=musicas[indiceRadio];
+  if(!m?.arquivo){aviso.textContent='Arquivo de áudio indisponível.';return;}
+  radioAtiva=true;
+  radio.src=m.arquivo;
+  radio.dataset.musicaId=String(m.id);
+  informarRadio(m);
+  try{await radio.play();aviso.textContent='';}
+  catch(e){radioAtiva=false;aviso.textContent='Não foi possível iniciar automaticamente. Aperte o play do áudio.';console.error(e);}
+}
+radio.addEventListener('ended',()=>{if(!radioAtiva)return;indiceRadio=(indiceRadio+1)%musicas.length;tocarRadio();});
+radio.addEventListener('play',()=>{player.pause();radioAtiva=true;});
+document.getElementById('btnSairRadio').addEventListener('click',()=>{
+  radioAtiva=false;
+  document.querySelectorAll('audio').forEach(a=>{a.pause();a.currentTime=0;});
+  mostrarDespedidaRadio();
 });
+document.getElementById('btnContinuarOuvindo').addEventListener('click',()=>{
+  document.getElementById('avisoContinuarOuvindo').style.display='flex';
+});
+carregarMusicas();
+setInterval(carregarMusicas,60000);
 </script>
   
 <style>
