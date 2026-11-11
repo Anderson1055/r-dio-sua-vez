@@ -67,17 +67,27 @@ small{color:#bbb}
 <section class="card">
   <h2>🎵 Biblioteca de músicas</h2>
 
-  <h3>🕒 Aguardando aprovação</h3>
+ <details>
+<summary>🕒 Aguardando aprovação</summary>
   <button type="button" id="btnListarMusicas">
     Atualizar lista de músicas
   </button>
   <div id="listaMusicas"></div>
-
-  <h3>✅ Músicas aprovadas</h3>
+</details>
+  <details>
+<summary>✅ Músicas aprovadas</summary>
   <div id="listaAprovadas"></div>
-
-  <h3>❌ Músicas rejeitadas</h3>
+</details>
+  <details>
+<summary>❌ Músicas rejeitadas</summary>
   <div id="listaRejeitadas"></div>
+    </details>
+
+<details>
+  <summary>🗑️ Lixeira</summary>
+  <div id="listaLixeira"></div>
+</details>
+
 </section>
 
 <section class="card">
@@ -254,7 +264,7 @@ if (error || !user || user.id !== ADMIN_ID) {
 const { data: cadastros, error: erroCadastros } =
   await supabaseClient
     .from("musicas")
-    .select("id, titulo, artista, arquivo_url, status");
+    .select("id, titulo, artista, arquivo_url, status, aprovada, excluida_em");
 
 if (erroCadastros) {
   lista.textContent = "Erro ao buscar cadastros: " +
@@ -303,36 +313,41 @@ botaoExcluir.textContent = "🗑️ Excluir";
 botaoExcluir.type = "button";
 
 
+
 botaoExcluir.onclick = async () => {
-  if (!confirm("Tem certeza que deseja excluir esta música?")) {
+  if (!cadastro) {
+    alert("Cadastro da música não encontrado.");
+    return;
+  }
+
+  if (!confirm("Mover esta música para a lixeira?")) {
     return;
   }
 
   try {
-    // Excluir o cadastro da música
-    if (cadastro) {
-      const { error: erroBanco } = await supabaseClient
-        .from("musicas")
-        .delete()
-        .eq("id", cadastro.id);
+    const { data: { user }, error: erroLogin } =
+      await supabaseClient.auth.getUser();
 
-      if (erroBanco) throw erroBanco;
+    if (erroLogin || !user || user.id !== ADMIN_ID) {
+      alert("Acesso não autorizado!");
+      return;
     }
 
-    // Excluir o arquivo MP3
-    const { error: erroArquivo } = await supabaseClient.storage
+    const { error } = await supabaseClient
       .from("musicas")
-      .remove([musica.name]);
+      .update({ excluida_em: new Date().toISOString() })
+      .eq("id", cadastro.id);
 
-    if (erroArquivo) throw erroArquivo;
+    if (error) throw error;
 
-    alert("Música excluída com sucesso!");
+    alert("Música enviada para a lixeira!");
     await listarMusicas();
 
   } catch (erro) {
-    alert("Erro ao excluir: " + erro.message);
+    alert("Erro ao mover para a lixeira: " + erro.message);
   }
 };
+
 
 
 const botaoAprovar = document.createElement("button");
@@ -369,13 +384,17 @@ botaoRejeitar.type = "button";
   
 item.append(titulo, player, botaoAprovar, botaoRejeitar, botaoExcluir);
     
-if (statusMusica === "aprovada") {
+
+if (cadastro?.excluida_em) {
+  document.getElementById("listaLixeira").appendChild(item);
+} else if (statusMusica === "aprovada") {
   document.getElementById("listaAprovadas").appendChild(item);
 } else if (statusMusica === "rejeitada") {
   document.getElementById("listaRejeitadas").appendChild(item);
 } else {
   document.getElementById("listaMusicas").appendChild(item);
 }
+
 
   }
 }
