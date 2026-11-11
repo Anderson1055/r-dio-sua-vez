@@ -8,11 +8,11 @@
 *{box-sizing:border-box}body{margin:0;background:#080b15;color:#fff;font-family:Arial,sans-serif}header{text-align:center;padding:35px 15px;background:linear-gradient(135deg,#17152c,#42200b)}h1,h2{color:#ffbd35}main{max-width:850px;margin:auto;padding:20px}.card{background:#121827;border:1px solid #a86a20;border-radius:16px;padding:25px;margin:20px 0}button{background:linear-gradient(90deg,#e27b0b,#ffca46);border:0;border-radius:25px;padding:13px 22px;font-weight:bold;cursor:pointer;margin:5px 5px 5px 0;color:#20170b}button:disabled{opacity:.5;cursor:not-allowed}input{display:block;width:100%;padding:12px;margin:12px 0;border-radius:8px;border:1px solid #6e7380}small,.muted{color:#c7c7cf}summary{cursor:pointer;font-weight:bold;padding:12px 0}details{border-bottom:1px solid #343947}audio{width:100%;max-width:480px;margin:8px 0}.musica{padding:14px 0;border-bottom:1px solid #343947;overflow-wrap:anywhere}.musica p{margin:4px 0 10px}.acoes{display:flex;flex-wrap:wrap}.aviso{color:#ffcf83}.erro{color:#ff9999}.ok{color:#a8f0be}#loginAdmin{max-width:850px;margin:20px auto}#areaAdmin[hidden],#loginAdmin[hidden]{display:none}#mensagemLogin,#mensagemPainel{white-space:pre-wrap}#btnAtualizar{margin:10px 0 16px}
 
 /* Listas compactas e independentes, com rolagem interna */
-.lista-rolagem{max-height:340px;overflow-y:auto;overflow-x:hidden;padding:0 10px 0 0;scrollbar-width:thin;scrollbar-color:#e5a22d #182032;overscroll-behavior:contain}
-.lista-rolagem .musica{padding:10px 0}.lista-rolagem .musica[hidden]{display:none}
+.lista-rolagem{height:300px;overflow-y:scroll;overflow-x:hidden;padding:0 10px 0 0;scrollbar-width:thin;scrollbar-color:#e5a22d #182032;overscroll-behavior:contain}
+.lista-rolagem .musica{padding:7px 0}.lista-rolagem .musica[hidden]{display:none}
 .lista-rolagem audio{max-width:100%;height:36px}
 .busca-categoria{background:#f9f9fb;color:#161616;margin:6px 0 10px}.lista-rolagem{border:1px solid #343947;border-radius:10px;padding:6px 12px;min-height:55px}.contador-busca{font-size:12px;color:#c7c7cf;margin:0 0 8px}
-@media(max-width:600px){main{padding:10px}.card{padding:16px}.lista-rolagem{max-height:300px}.acoes button{padding:10px 13px}}
+.musica-cabecalho{display:block;width:100%;text-align:left;background:#222d46;color:#fff;border:1px solid #44516a;border-radius:9px;padding:11px 12px;margin:0;font-size:14px;line-height:1.35}.musica-cabecalho:hover{background:#334363}.musica-conteudo{padding:9px 4px 4px}.lista-rolagem::-webkit-scrollbar{width:11px}.lista-rolagem::-webkit-scrollbar-thumb{background:#e5a22d;border-radius:12px}.lista-rolagem::-webkit-scrollbar-track{background:#182032;border-radius:12px}.busca-categoria{border:2px solid #e5a22d}.categoria-ajuda{font-size:12px;color:#bfc9df;margin:4px 0 8px}@media(max-width:600px){main{padding:10px}.card{padding:16px}.lista-rolagem{max-height:300px}.acoes button{padding:10px 13px}}
 </style>
 </head>
 <body>
@@ -25,10 +25,10 @@
 <section class="card"><h2>🎵 Adicionar música</h2>
 <form id="formAdicionar"><label for="nomeMusica">Nome da música</label><input id="nomeMusica" type="text" placeholder="Ex.: Meu Girassol" required maxlength="200"><label for="nomeArtista">Nome do artista</label><input id="nomeArtista" type="text" placeholder="Ex.: Anderson Picoloto" required maxlength="200"><label for="arquivoMp3">Arquivo MP3</label><input id="arquivoMp3" type="file" accept="audio/mpeg,.mp3" required><label for="arquivoCapa">Capa da música</label><input id="arquivoCapa" type="file" accept="image/png,image/jpeg,image/webp" required><button type="submit" id="btnAdicionarMusica">Adicionar música</button></form><p><small>As músicas novas entram em “Aguardando aprovação”.</small></p></section>
 <section class="card"><h2>🎵 Biblioteca de músicas</h2><button type="button" id="btnListarMusicas">🔄 Atualizar lista de músicas</button><p id="mensagemPainel" role="status"></p>
-<details open><summary>🕒 Aguardando aprovação (<span id="qtdPendentes">0</span>)</summary><label for="busca-aguardando">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-aguardando" data-categoria="aguardando" type="search" placeholder="Buscar título ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-aguardando" aria-live="polite"></p><div id="listaMusicas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
-<details open><summary>✅ Músicas aprovadas (<span id="qtdAprovadas">0</span>)</summary><label for="busca-aprovada">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-aprovada" data-categoria="aprovada" type="search" placeholder="Buscar título ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-aprovada" aria-live="polite"></p><div id="listaAprovadas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
-<details><summary>❌ Músicas rejeitadas (<span id="qtdRejeitadas">0</span>)</summary><label for="busca-rejeitada">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-rejeitada" data-categoria="rejeitada" type="search" placeholder="Buscar título ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-rejeitada" aria-live="polite"></p><div id="listaRejeitadas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
-<details><summary>🗑️ Lixeira (<span id="qtdLixeira">0</span>)</summary><label for="busca-lixeira">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-lixeira" data-categoria="lixeira" type="search" placeholder="Buscar título ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-lixeira" aria-live="polite"></p><div id="listaLixeira" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div><button type="button" id="btnEsvaziarLixeira" disabled>🧹 Esvaziar lixeira</button><p class="muted"><small>A exclusão definitiva não pode ser desfeita.</small></p></details>
+<details open><summary>🕒 Aguardando aprovação (<span id="qtdPendentes">0</span>)</summary><label for="busca-aguardando">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-aguardando" data-categoria="aguardando" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-aguardando" aria-live="polite"></p><div id="listaMusicas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
+<details><summary>✅ Músicas aprovadas (<span id="qtdAprovadas">0</span>)</summary><label for="busca-aprovada">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-aprovada" data-categoria="aprovada" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-aprovada" aria-live="polite"></p><div id="listaAprovadas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
+<details><summary>❌ Músicas rejeitadas (<span id="qtdRejeitadas">0</span>)</summary><label for="busca-rejeitada">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-rejeitada" data-categoria="rejeitada" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-rejeitada" aria-live="polite"></p><div id="listaRejeitadas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
+<details><summary>🗑️ Lixeira (<span id="qtdLixeira">0</span>)</summary><label for="busca-lixeira">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-lixeira" data-categoria="lixeira" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-lixeira" aria-live="polite"></p><div id="listaLixeira" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div><button type="button" id="btnEsvaziarLixeira" disabled>🧹 Esvaziar lixeira</button><p class="muted"><small>A exclusão definitiva não pode ser desfeita.</small></p></details>
 <p class="muted"><small>Os botões alteram o cadastro existente, sem criar cópias. Mover para a lixeira não apaga o MP3 do armazenamento.</small></p>
 </section>
 <section class="card"><h2>🔐 Segurança</h2><p>Gerenciamento disponível somente para a conta administrativa autorizada. As permissões também precisam estar protegidas pelas políticas RLS do Supabase.</p><button type="button" id="btnSairAdmin">🚪 Sair da administração</button></section>
@@ -55,7 +55,7 @@ function aplicarBusca(){
    item.hidden=!!termo && !normalizarBusca(item.dataset.busca).includes(termo);
    if(!item.hidden)visiveis++;
   }
-  el('resultado-'+categoria).textContent=termo ? visiveis+' resultado(s) encontrado(s)' : '';
+  el('resultado-'+categoria).textContent=termo ? visiveis+' resultado(s) encontrado(s)' : visiveis+' música(s) na lista — role para procurar ou use a lupa.';
  }
 }
 const destinos = {aguardando:'listaMusicas',aprovada:'listaAprovadas',rejeitada:'listaRejeitadas',lixeira:'listaLixeira'};
@@ -91,8 +91,12 @@ async function mudarMusica(m,acao){
 }
 function montarMusica(m){
  const item=document.createElement('div');item.className='musica';item.dataset.busca=(m.titulo||'')+' '+(m.artista||'');
- const titulo=document.createElement('p');const forte=document.createElement('strong');forte.textContent='🎵 '+(m.titulo||'Sem título')+' — '+(m.artista||'Artista não informado');titulo.appendChild(forte);item.appendChild(titulo);
- if(m.arquivo_url){const player=document.createElement('audio');player.controls=true;player.preload='none';player.src=m.arquivo_url;item.appendChild(player);}else{const aviso=document.createElement('p');aviso.className='aviso';aviso.textContent='Cadastro sem endereço do MP3.';item.appendChild(aviso);}
+ const cabecalho=document.createElement('button');cabecalho.type='button';cabecalho.className='musica-cabecalho';cabecalho.setAttribute('aria-expanded','false');
+ cabecalho.textContent='🎵 '+(m.titulo||'Sem título')+' — '+(m.artista||'Artista não informado')+'  ▾';
+ const conteudo=document.createElement('div');conteudo.className='musica-conteudo';conteudo.hidden=true;
+ cabecalho.addEventListener('click',()=>{conteudo.hidden=!conteudo.hidden;cabecalho.setAttribute('aria-expanded',String(!conteudo.hidden));cabecalho.textContent='🎵 '+(m.titulo||'Sem título')+' — '+(m.artista||'Artista não informado')+(conteudo.hidden?'  ▾':'  ▴');});
+ item.appendChild(cabecalho);
+ if(m.arquivo_url){const player=document.createElement('audio');player.controls=true;player.preload='none';player.src=m.arquivo_url;conteudo.appendChild(player);}else{const aviso=document.createElement('p');aviso.className='aviso';aviso.textContent='Cadastro sem endereço do MP3.';conteudo.appendChild(aviso);}
  const acoes=document.createElement('div');acoes.className='acoes';const e=estado(m);
  if(e==='lixeira'){acoes.appendChild(criarBotao('↩️ Restaurar',()=>mudarMusica(m,'restaurar')));acoes.appendChild(criarBotao('🗑️ Excluir definitivamente',()=>excluirDefinitivamente(m)));}
  else{
@@ -100,8 +104,9 @@ function montarMusica(m){
   if(e!=='rejeitada')acoes.appendChild(criarBotao('❌ Rejeitar',()=>mudarMusica(m,'rejeitar')));
   acoes.appendChild(criarBotao('🗑️ Excluir',()=>mudarMusica(m,'excluir')));
  }
- item.appendChild(acoes);return item;
+ conteudo.appendChild(acoes);item.appendChild(conteudo);return item;
 }
+
 async function listarMusicas(){
  if(carregando)return;carregando=true;el('btnListarMusicas').disabled=true;mensagem('Carregando músicas...');
  try{
@@ -115,6 +120,7 @@ async function listarMusicas(){
   const quantidades={aguardando:0,aprovada:0,rejeitada:0,lixeira:0};
   for(const m of registros){const e=estado(m);el(destinos[e]).appendChild(montarMusica(m));quantidades[e]++;}
   for(const e of Object.keys(destinos)){el(contadores[e]).textContent=quantidades[e];if(!quantidades[e]){const p=document.createElement('p');p.className='muted';p.textContent='Nenhuma música nesta categoria.';el(destinos[e]).appendChild(p);}}
+  aplicarBusca();
   mensagem('Lista atualizada: '+registros.length+' cadastro(s).','ok');
  }catch(e){mensagem('Erro ao carregar músicas: '+e.message,'erro');}finally{carregando=false;el('btnListarMusicas').disabled=false;}
 }
