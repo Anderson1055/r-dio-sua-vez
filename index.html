@@ -561,16 +561,16 @@ const PLANOS_DIVULGACAO = Object.freeze([
   {codigo:'premium',nome:'Premium',valor:69.90,preco:'R$ 69,90',dias:30,porDia:4,total:120}
 ]);
 const tabelaContratacoes = supabaseUrl + '/rest/v1/contratacoes_divulgacao';
+const tabelaPagamentosTeste = supabaseUrl + '/rest/v1/pagamentos_teste';
 const escolhasPlanos = new Map();
 const moedaBR = valor => valor.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 function atualizarResumoPlanos(){
   const resumo=document.getElementById('resumoPlanos');
   if(!resumo)return;
   const escolhas=[...escolhasPlanos.values()];
-  const total=escolhas.reduce((s,p)=>s+p.valor,0);
   resumo.textContent=escolhas.length
-    ? 'Planos selecionados: '+escolhas.length+' música(s) | Total previsto: '+moedaBR(total)+' — Simulação, sem cobrança.'
-    : 'Selecione um plano em cada música aprovada para visualizar o total. Nenhuma cobrança será feita.';
+    ? 'Planos selecionados: '+escolhas.length+' música(s). Cada música terá um pedido de teste separado, sem cobrança real.'
+    : 'Selecione um plano por música. Nenhuma cobrança real será feita.';
 }
 const msgEnvio = document.getElementById('mensagemEnvio');
 const msgAdmin = document.getElementById('mensagemAdmin');
@@ -621,8 +621,8 @@ async function carregarMeusEnvios(){
     const dados=await apiArtista(tabelaEnvios+'?select=id,titulo,artista,genero,status,criado_em,observacao_admin,capa_caminho&order=criado_em.desc&limit=100');
     lista.replaceChildren();
     if(!dados.length){lista.textContent='Nenhuma música enviada ainda.';return;}
-     // A tabela de contratações ainda não existe. Não bloquear a listagem de músicas.
-     const contratos=[]; // Simulação local: nenhum contrato ou pagamento é gravado no banco.
+     // Consultar contratações já registradas para evitar pedidos duplicados.
+     const contratos=await apiArtista(tabelaContratacoes+'?select=id,envio_id,plano,status,pagamento_teste_id&usuario_id=eq.'+encodeURIComponent(sessaoArtista.user.id)+'&order=criado_em.desc&limit=200');
       escolhasPlanos.clear();atualizarResumoPlanos();
      const porEnvio=new Map(contratos.map(c=>[String(c.envio_id),c]));
     dados.forEach(m=>{
@@ -634,7 +634,7 @@ async function carregarMeusEnvios(){
          const contrato=porEnvio.get(String(m.id));
          const plano=PLANOS_DIVULGACAO.find(p=>p.codigo===contrato.plano);
          const p=document.createElement('p');p.className='plano-aviso';
-         p.textContent='📣 Plano escolhido: '+(plano?plano.nome+' — '+plano.preco:contrato.plano)+' | Situação: '+(contrato.status==='aguardando_pagamento'?'Aguardando pagamento Pix (ainda não disponível)':contrato.status);
+         p.textContent='📣 Plano escolhido: '+(plano?plano.nome+' — '+plano.preco:contrato.plano)+' | Situação: '+(contrato.status==='aguardando_pagamento'?'Aguardando pagamento de teste (nenhum Pix real)':contrato.status);
          div.append(p);
        }
        if(normalizar(m.status)==='aprovada' && !porEnvio.has(String(m.id))){
@@ -655,10 +655,36 @@ async function carregarMeusEnvios(){
          const confirmar=document.createElement('button');confirmar.type='button';confirmar.textContent='🧪 Simular pedido Pix (sem pagamento)';
          const retorno=document.createElement('p');retorno.className='plano-aviso';retorno.setAttribute('role','status');
           retorno.textContent='Teste demonstrativo: nenhum Pix será gerado e nenhum pagamento será cobrado.';
-          confirmar.addEventListener('click',()=>{
+          confirmar.addEventListener('click',async()=>{
             if(!escolhido){retorno.textContent='Selecione um plano antes de simular.';return;}
-            const referencia='TESTE-'+String(m.id).slice(0,8).toUpperCase();
-            retorno.textContent='🧪 PEDIDO SIMULADO | Referência: '+referencia+' | Música: '+m.titulo+' | Plano: '+escolhido.nome+' | Valor: '+moedaBR(escolhido.valor)+' | Status: aguardando pagamento (simulado). Nenhum Pix real foi criado, nenhum valor foi cobrado e a música NÃO foi liberada para programação.';
+            confirmar.disabled=true;
+            retorno.textContent='Registrando pedido de teste no Supabase...';
+            try{
+              // Uma contratação e um pagamento de teste por música, nunca um Pix real.
+              const existentes=await apiArtista(tabelaContratacoes+'?select=id,plano,status&envio_id=eq.'+encodeURIComponent(m.id)+'&usuario_id=eq.'+encodeURIComponent(sessaoArtista.user.id)+'&limit=1');
+              if(existentes.length){retorno.textContent='Esta música já possui uma contratação registrada. Atualize a lista para visualizar.';await carregarMeusEnvios();return;}
+              const pagamentos=await apiArtista(tabelaPagamentosTeste,{
+                method:'POST',headers:{'Content-Type':'application/json',Prefer:'return=representation'},
+                body:JSON.stringify({usuario_id:sessaoArtista.user.id,valor_total:escolhido.valor,status:'pendente'})
+              });
+              if(!pagamentos?.[0]?.id)throw new Error('Pagamento de teste não retornou identificador.');
+              const pagamentoId=pagamentos[0].id;
+              try{
+                const contratosCriados=await apiArtista(tabelaContratacoes,{
+                  method:'POST',headers:{'Content-Type':'application/json',Prefer:'return=representation'},
+                  body:JSON.stringify({envio_id:m.id,usuario_id:sessaoArtista.user.id,plano:escolhido.codigo,valor:escolhido.valor,status:'aguardando_pagamento',pagamento_teste_id:pagamentoId})
+                });
+                if(!contratosCriados?.[0]?.id)throw new Error('Contratação não retornou identificador.');
+                retorno.textContent='Pedido de teste salvo! Música: '+m.titulo+' | Plano: '+escolhido.nome+' | '+moedaBR(escolhido.valor)+' | Aguardando pagamento simulado. Nenhum Pix real foi gerado.';
+                escolhasPlanos.delete(String(m.id));atualizarResumoPlanos();
+                await carregarMeusEnvios();
+              }catch(erroContrato){
+                // Evitar deixar um pagamento de teste solto se a contratação falhar.
+                try{await apiArtista(tabelaPagamentosTeste+'?id=eq.'+encodeURIComponent(pagamentoId),{method:'DELETE'});}catch(e){console.warn('Pagamento de teste órfão:',pagamentoId,e);}
+                throw erroContrato;
+              }
+            }catch(e){retorno.textContent='Não foi possível registrar o pedido: '+e.message;}
+            finally{confirmar.disabled=false;}
           });
          area.append(confirmar,retorno);div.append(area);
        }
