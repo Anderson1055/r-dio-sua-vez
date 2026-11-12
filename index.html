@@ -589,7 +589,12 @@ async function apiArtista(url,opcoes={}){
   await garantirSessaoValida();
   const r=await fetch(url,{...opcoes,headers:{...cabecalhosArtista(),...(opcoes.headers||{})}});
   if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.message||d.error||'Erro HTTP '+r.status);}
-  return r.status===204?null:r.json();
+  // Algumas operações retornam sucesso com corpo vazio (ex.: INSERT com Prefer: return=minimal).
+  // Não tentar interpretar resposta vazia como JSON.
+  const corpo=await r.text();
+  if(!corpo.trim())return null;
+  try{return JSON.parse(corpo);}
+  catch(e){throw new Error('Resposta inesperada do servidor (JSON inválido).');}
 }
 async function urlAudioPrivado(caminho){
   const d=await apiArtista(bucketEnvios+'/sign/envios-musicais/'+caminho,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expiresIn:600})});
