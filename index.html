@@ -24,7 +24,7 @@ button:hover,.btn:hover{filter:brightness(1.12)}
 .genre{background:#20263a;border:1px solid #39415a;border-radius:12px;text-align:center;padding:20px;font-weight:bold;color:white;cursor:pointer}.genre:hover,.genre[aria-pressed="true"]{background:#354568;border-color:#ffbd35}.faixa{display:block;width:100%;margin:8px 0;text-align:left;background:#20263a;color:white;border:1px solid #39415a;border-radius:12px}.faixa:hover{border-color:#ffbd35}#listaGenero{margin-top:18px}#listaGenero[hidden]{display:none}.pasta-musicas{background:#0c1222;border:1px solid #39415a;border-radius:14px;padding:15px;max-width:680px}.pasta-topo{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.pasta-topo button{padding:9px 15px}.busca-musicas{width:100%;margin:12px 0;padding:12px;border-radius:10px;border:1px solid #52607b;background:#171f33;color:#fff;font-size:16px}.rolagem-musicas{max-height:320px;overflow-y:auto;overscroll-behavior:contain;border:1px solid #303b55;border-radius:10px}.faixa{padding:10px 12px;margin:0!important;border-radius:0!important;border:0!important;border-bottom:1px solid #39415a!important;font-size:14px;line-height:1.4}.faixa strong,.faixa small{display:block}.faixa small{color:#bbc4d6;font-weight:normal}.faixa.ativa{background:#354568;border-left:3px solid #ffbd35!important}.contagem-musicas{font-size:13px;color:#bbc4d6;margin:4px 0 10px}.pasta-vazia{padding:15px;color:#d5d9e5}
 #aviso{color:#ffd88c}
 footer{text-align:center;background:#050711;padding:35px;color:#aaa}
-.artista-area{max-width:560px;background:#0c1222;border:1px solid #39415a;border-radius:14px;padding:18px;margin-top:18px}.artista-area label{display:block;margin:14px 0 6px}.artista-area input{width:100%;padding:13px;border:1px solid #52607b;border-radius:10px;background:#171f33;color:white;font-size:16px}.artista-area form>button{margin-top:18px}.artista-abas{display:flex;gap:10px}.artista-abas button{flex:1;background:#20263a;color:#fff}.artista-abas button.aba-ativa{background:linear-gradient(90deg,#e27b0b,#ffca46);color:#15100a}.aviso-artista{font-size:13px;color:#bbc4d6}#mensagemArtista{color:#ffda85;white-space:pre-line}#areaLogada[hidden]{display:none}
+.artista-area{max-width:560px;background:#0c1222;border:1px solid #39415a;border-radius:14px;padding:18px;margin-top:18px}.artista-area label{display:block;margin:14px 0 6px}.artista-area input{width:100%;padding:13px;border:1px solid #52607b;border-radius:10px;background:#171f33;color:white;font-size:16px}.artista-area form>button{margin-top:18px}.artista-area input[type="checkbox"]{width:auto;accent-color:#ffbd35}.artista-area .check-artista{display:flex;align-items:flex-start;gap:9px;line-height:1.5}.artista-area .check-artista label{margin:0}.seguranca-artista{border:1px solid #ffbd35;background:#242017;border-radius:12px;padding:14px;margin-top:15px;line-height:1.6}.artista-area a{color:#ffcf69}.artista-abas{display:flex;gap:10px}.artista-abas button{flex:1;background:#20263a;color:#fff}.artista-abas button.aba-ativa{background:linear-gradient(90deg,#e27b0b,#ffca46);color:#15100a}.aviso-artista{font-size:13px;color:#bbc4d6}#mensagemArtista{color:#ffda85;white-space:pre-line}#areaLogada[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -77,7 +77,14 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 <div class="artista-area">
   <div class="artista-abas"><button type="button" id="abaCadastro" class="aba-ativa">Criar conta</button><button type="button" id="abaLogin">Entrar</button></div>
   <form id="formArtista">
-    <div id="camposCadastro"><label for="nomeArtista">Nome artístico</label><input id="nomeArtista" autocomplete="nickname" maxlength="100" placeholder="Seu nome artístico"></div>
+    <div id="camposCadastro">
+      <label for="nomeCompleto">Nome completo do responsável</label><input id="nomeCompleto" autocomplete="name" maxlength="120" placeholder="Nome e sobrenome" required>
+      <label for="nomeArtista">Nome artístico, dupla ou banda</label><input id="nomeArtista" autocomplete="nickname" maxlength="100" placeholder="Seu nome artístico" required>
+      <label for="cpfArtista">CPF do responsável</label><input id="cpfArtista" type="text" inputmode="numeric" autocomplete="off" maxlength="14" placeholder="000.000.000-00" required>
+      <label for="whatsappArtista">WhatsApp com DDD</label><input id="whatsappArtista" type="tel" autocomplete="tel" inputmode="tel" maxlength="15" placeholder="(00) 00000-0000" required>
+      <div class="seguranca-artista"><strong>🔒 Atenção contra golpes</strong><p>A Rádio Sua Vez utiliza o WhatsApp exclusivamente para comunicar a aprovação de músicas. Nunca pedimos Pix, transferências ou pagamentos por WhatsApp. A contratação e o pagamento serão feitos somente na Área do Artista, dentro do site oficial, após a aprovação da música.</p></div>
+      <div class="check-artista"><input id="aceiteArtista" type="checkbox" required><label for="aceiteArtista">Li as informações de cadastro e estou ciente de que meus dados serão usados para identificar minha conta e administrar solicitações de divulgação. Os Termos de Uso e a Política de Privacidade completos serão disponibilizados antes da abertura pública das contratações.</label></div>
+    </div>
     <label for="emailArtista">E-mail</label><input id="emailArtista" type="email" autocomplete="email" required placeholder="seuemail@exemplo.com">
     <label for="senhaArtista">Senha (mínimo de 8 caracteres)</label><input id="senhaArtista" type="password" autocomplete="new-password" minlength="8" required>
     <button id="enviarArtista" type="submit">Criar conta gratuitamente</button>
@@ -274,6 +281,7 @@ function trocarAbaArtista(cadastro){
   abaCadastro.classList.toggle('aba-ativa',cadastro);abaLogin.classList.toggle('aba-ativa',!cadastro);
   document.getElementById('enviarArtista').textContent=cadastro?'Criar conta gratuitamente':'Entrar na minha conta';
   document.getElementById('senhaArtista').autocomplete=cadastro?'new-password':'current-password';
+  document.querySelectorAll('#camposCadastro input').forEach(i=>{i.disabled=!cadastro;});
   mensagemArtista.textContent='';
 }
 abaCadastro.addEventListener('click',()=>trocarAbaArtista(true));
@@ -292,6 +300,23 @@ async function requisicaoAuth(caminho,corpo,token){
   if(!r.ok)throw new Error(dados.msg||dados.error_description||dados.message||dados.error||'Não foi possível concluir. Confira os dados e tente novamente.');
   return dados;
 }
+function cpfValido(cpf){
+  if(!/^\d{11}$/.test(cpf)||/^(\d)\1{10}$/.test(cpf))return false;
+  for(let tamanho=9;tamanho<11;tamanho++){
+    let soma=0;for(let i=0;i<tamanho;i++)soma+=Number(cpf[i])*(tamanho+1-i);
+    const digito=(soma*10)%11%10;
+    if(digito!==Number(cpf[tamanho]))return false;
+  }
+  return true;
+}
+document.getElementById('cpfArtista').addEventListener('input',e=>{
+  const d=e.target.value.replace(/\D/g,'').slice(0,11);
+  e.target.value=d.replace(/^(\d{3})(\d)/,'$1.$2').replace(/^(\d{3})\.(\d{3})(\d)/,'$1.$2.$3').replace(/\.(\d{3})(\d)/,'.$1-$2');
+});
+document.getElementById('whatsappArtista').addEventListener('input',e=>{
+  const d=e.target.value.replace(/\D/g,'').slice(0,11);
+  e.target.value=d.length>2?'('+d.slice(0,2)+') '+d.slice(2,7)+(d.length>7?'-'+d.slice(7):''):d;
+});
 formArtista.addEventListener('submit',async e=>{
   e.preventDefault();
   const botao=document.getElementById('enviarArtista');botao.disabled=true;mensagemArtista.textContent='Aguarde...';
@@ -300,8 +325,14 @@ formArtista.addEventListener('submit',async e=>{
   try{
     if(modoCadastro){
       const nome=document.getElementById('nomeArtista').value.trim();
-      if(!nome)throw new Error('Informe seu nome artístico.');
-      const dados=await requisicaoAuth('/signup',{email,password,data:{nome_artistico:nome}});
+      const nomeCompleto=document.getElementById('nomeCompleto').value.trim();
+      const cpf=document.getElementById('cpfArtista').value.replace(/\D/g,'');
+      const whatsapp=document.getElementById('whatsappArtista').value.replace(/\D/g,'');
+      if(!nomeCompleto||!nome)throw new Error('Informe seu nome completo e nome artístico.');
+      if(!cpfValido(cpf))throw new Error('Informe um CPF válido.');
+      if(whatsapp.length!==11)throw new Error('Informe WhatsApp com DDD e 9 dígitos.');
+      if(!document.getElementById('aceiteArtista').checked)throw new Error('Confirme a ciência das informações de cadastro.');
+      const dados=await requisicaoAuth('/signup',{email,password,data:{nome_completo:nomeCompleto,nome_artistico:nome,cpf:cpf,whatsapp:whatsapp}});
       if(dados.access_token){exibirSessaoArtista(dados);mensagemArtista.textContent='Conta criada e conectada!';}
       else mensagemArtista.textContent='Cadastro solicitado. Verifique seu e-mail para confirmar a conta, caso a confirmação esteja ativada no Supabase. Depois volte e clique em Entrar.';
     }else{
