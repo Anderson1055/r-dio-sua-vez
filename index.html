@@ -101,7 +101,25 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
     <label for="emailArtista">E-mail</label><input id="emailArtista" type="email" autocomplete="email" required placeholder="seuemail@exemplo.com">
     <label for="senhaArtista">Senha (mínimo de 8 caracteres)</label><input id="senhaArtista" type="password" autocomplete="new-password" minlength="8" required>
     <button id="enviarArtista" type="submit">Criar conta gratuitamente</button>
+    <p id="linhaEsqueciSenha" hidden><button type="button" class="termos-link" id="esqueciSenha">🔑 Esqueci minha senha</button></p>
   </form>
+  <div id="recuperarSenha" hidden>
+    <h3>🔑 Recuperar acesso</h3>
+    <p id="instrucaoRecuperacao">Informe seu e-mail cadastrado para receber um link de recuperação.</p>
+    <form id="formRecuperacao">
+      <label for="emailRecuperacao">E-mail cadastrado</label>
+      <input id="emailRecuperacao" type="email" autocomplete="email" required placeholder="seuemail@exemplo.com">
+      <button type="submit" id="enviarRecuperacao">Enviar link de recuperação</button>
+    </form>
+    <form id="formNovaSenha" hidden>
+      <label for="novaSenhaArtista">Nova senha (mínimo de 8 caracteres)</label>
+      <input id="novaSenhaArtista" type="password" autocomplete="new-password" minlength="8" required>
+      <label for="confirmarNovaSenha">Confirmar nova senha</label>
+      <input id="confirmarNovaSenha" type="password" autocomplete="new-password" minlength="8" required>
+      <button type="submit" id="salvarNovaSenha">Salvar nova senha</button>
+    </form>
+    <p><button type="button" class="termos-link" id="voltarLogin">← Voltar ao login</button></p>
+  </div>
   <div id="areaLogada" hidden><p id="boasVindasArtista"></p><p>Seu acesso está ativo. O envio de músicas e o acompanhamento das avaliações serão ligados ao painel na próxima etapa.</p><button type="button" id="sairArtista">Sair da conta</button></div>
   <p id="mensagemArtista" role="status" aria-live="polite"></p>
   <p class="aviso-artista"><button type="button" class="termos-link" id="abrirTermosRodape">📄 Ler condições de divulgação musical</button></p><p class="aviso-artista">O cadastro é gratuito. A música só poderá ser contratada para divulgação depois da avaliação e aprovação.</p>
@@ -329,6 +347,8 @@ const mensagemArtista = document.getElementById('mensagemArtista');
 const camposCadastro = document.getElementById('camposCadastro');
 const abaCadastro = document.getElementById('abaCadastro');
 const abaLogin = document.getElementById('abaLogin');
+const recuperarSenha = document.getElementById('recuperarSenha');
+let tokenRecuperacao = null;
 let modoCadastro = true;
 let sessaoArtista = null;
 const painelArtista = document.getElementById('painelArtista');
@@ -338,6 +358,7 @@ const acoesArtista = document.getElementById('acoesArtista');
 function abrirPainelArtista(cadastro){
   painelArtista.hidden=false;
   acoesArtista.hidden=true;
+  recuperarSenha.hidden=true;
   trocarAbaArtista(cadastro);
   document.getElementById('mostrarCadastro').setAttribute('aria-expanded','true');
   document.getElementById('mostrarLogin').setAttribute('aria-expanded','true');
@@ -352,6 +373,8 @@ document.getElementById('fecharPainelArtista').addEventListener('click',()=>{
 });
 function trocarAbaArtista(cadastro){
   modoCadastro=cadastro;camposCadastro.hidden=!cadastro;
+  recuperarSenha.hidden=true;formArtista.hidden=false;
+  document.getElementById('linhaEsqueciSenha').hidden=cadastro;
   abaCadastro.classList.toggle('aba-ativa',cadastro);abaLogin.classList.toggle('aba-ativa',!cadastro);
   document.getElementById('enviarArtista').textContent=cadastro?'Criar conta gratuitamente':'Entrar na minha conta';
   document.getElementById('senhaArtista').autocomplete=cadastro?'new-password':'current-password';
@@ -360,6 +383,64 @@ function trocarAbaArtista(cadastro){
 }
 abaCadastro.addEventListener('click',()=>trocarAbaArtista(true));
 abaLogin.addEventListener('click',()=>trocarAbaArtista(false));
+
+function mostrarRecuperacao(comToken=false){
+  painelArtista.hidden=false;acoesArtista.hidden=true;
+  formArtista.hidden=true;document.querySelector('.artista-abas').hidden=true;
+  document.getElementById('areaLogada').hidden=true;
+  recuperarSenha.hidden=false;
+  document.getElementById('formRecuperacao').hidden=comToken;
+  document.getElementById('formNovaSenha').hidden=!comToken;
+  document.getElementById('instrucaoRecuperacao').textContent=comToken?'Digite e confirme sua nova senha.':'Informe seu e-mail cadastrado para receber um link de recuperação.';
+  mensagemArtista.textContent='';
+}
+document.getElementById('esqueciSenha').addEventListener('click',()=>{
+  document.getElementById('emailRecuperacao').value=document.getElementById('emailArtista').value;
+  mostrarRecuperacao(false);
+});
+document.getElementById('voltarLogin').addEventListener('click',()=>{
+  tokenRecuperacao=null;trocarAbaArtista(false);
+  document.querySelector('.artista-abas').hidden=false;
+});
+document.getElementById('formRecuperacao').addEventListener('submit',async e=>{
+  e.preventDefault();const botao=document.getElementById('enviarRecuperacao');botao.disabled=true;
+  try{
+    await requisicaoAuth('/recover?redirect_to='+encodeURIComponent(urlRetornoCadastro),{email:document.getElementById('emailRecuperacao').value.trim()});
+    mensagemArtista.textContent='Se o e-mail estiver cadastrado, você receberá um link para criar uma nova senha. Confira também a pasta de spam.';
+  }catch(err){mensagemArtista.textContent='Não foi possível solicitar a recuperação: '+err.message;}
+  finally{botao.disabled=false;}
+});
+document.getElementById('formNovaSenha').addEventListener('submit',async e=>{
+  e.preventDefault();const botao=document.getElementById('salvarNovaSenha');botao.disabled=true;
+  try{
+    const senha=document.getElementById('novaSenhaArtista').value;
+    if(senha!==document.getElementById('confirmarNovaSenha').value)throw new Error('As senhas não coincidem.');
+    if(!tokenRecuperacao)throw new Error('Link expirado ou inválido. Solicite outro.');
+    const r=await fetch(authBase+'/user',{method:'PUT',headers:{apikey:supabaseKey,Authorization:'Bearer '+tokenRecuperacao,'Content-Type':'application/json'},body:JSON.stringify({password:senha})});
+    const dados=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(dados.msg||dados.message||dados.error_description||'Não foi possível alterar a senha.');
+    tokenRecuperacao=null;document.getElementById('formNovaSenha').reset();
+    trocarAbaArtista(false);document.querySelector('.artista-abas').hidden=false;
+    mensagemArtista.textContent='Senha alterada com sucesso! Entre com sua nova senha.';
+  }catch(err){mensagemArtista.textContent='Erro: '+err.message;}
+  finally{botao.disabled=false;}
+});
+// Links de recuperação do Supabase chegam com tokens no fragmento da URL.
+(function verificarLinkRecuperacao(){
+  const fragmento=new URLSearchParams(location.hash.slice(1));
+  const busca=new URLSearchParams(location.search);
+  if(fragmento.get('type')==='recovery' && fragmento.get('access_token')){
+    tokenRecuperacao=fragmento.get('access_token');
+    history.replaceState(null,'',location.pathname+location.search);
+    mostrarRecuperacao(true);
+  }else if(busca.get('error') || fragmento.get('error')){
+    const erro=busca.get('error_description')||fragmento.get('error_description')||'Link inválido ou expirado.';
+    if(busca.get('error_code')?.includes('otp') || fragmento.get('error_code')?.includes('otp') || erro.toLowerCase().includes('expir')){
+      mostrarRecuperacao(false);mensagemArtista.textContent='O link expirou. Solicite um novo e-mail de recuperação.';
+    }
+  }
+})();
+
 function exibirSessaoArtista(sessao){
   sessaoArtista=sessao;
   const logado=!!sessao?.access_token;
