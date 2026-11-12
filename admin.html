@@ -265,10 +265,40 @@ async function listarEnviosArtistas(){
    adicionarTexto(detalhes,'Situação',status);
    const email=camposEnvio(m,['email','email_artista','contato_email']);if(email)adicionarTexto(detalhes,'E-mail',email);
    const whatsapp=camposEnvio(m,['whatsapp','telefone','celular']);if(whatsapp)adicionarTexto(detalhes,'WhatsApp',whatsapp);
-   const audio=camposEnvio(m,['arquivo_url','audio_url','mp3_url','url_musica','musica_url','arquivo_mp3']);
-   if(/^https:\/\//i.test(audio)){const player=document.createElement('audio');player.controls=true;player.preload='none';player.src=audio;detalhes.appendChild(player);}
-   else adicionarTexto(detalhes,'Áudio',audio?'Arquivo cadastrado (endereço não reproduzível)':'Campo de áudio não identificado');
-   const capa=camposEnvio(m,['capa_url','url_capa']);if(/^https:\/\//i.test(capa)){const a=document.createElement('a');a.href=capa;a.target='_blank';a.rel='noopener noreferrer';a.textContent='🖼️ Ver capa enviada';detalhes.appendChild(a);}else adicionarTexto(detalhes,'Capa','Não identificada ou não enviada (opcional na análise)');
+   // Arquivos de envios ficam em buckets privados: criar links curtos somente ao abrir.
+   const audioCaminho=camposEnvio(m,['arquivo_caminho']);
+   const audioUrl=camposEnvio(m,['arquivo_url','audio_url','mp3_url','url_musica','musica_url','arquivo_mp3']);
+   const capaCaminho=camposEnvio(m,['capa_caminho']);
+   const capaUrl=camposEnvio(m,['capa_url','url_capa']);
+   let arquivosCarregados=false;
+   async function carregarArquivos(){
+    if(arquivosCarregados)return;
+    arquivosCarregados=true;
+    const aviso=document.createElement('p');aviso.className='muted';aviso.textContent='Carregando arquivos privados...';detalhes.appendChild(aviso);
+    try{
+     if(!(await adminAutorizado()))throw new Error('Sessão administrativa expirada.');
+     let urlAudio=audioUrl;
+     if(audioCaminho){
+      const {data,error}=await client.storage.from('envios-musicais').createSignedUrl(audioCaminho,600);
+      if(error)throw new Error('Não foi possível acessar o áudio: '+error.message);
+      urlAudio=data?.signedUrl||'';
+     }
+     if(urlAudio && /^https:\/\//i.test(urlAudio)){
+      const player=document.createElement('audio');player.controls=true;player.preload='metadata';player.src=urlAudio;detalhes.appendChild(player);
+     }else adicionarTexto(detalhes,'Áudio','Arquivo não localizado no cadastro.');
+     let urlCapa=capaUrl;
+     if(capaCaminho){
+      const {data,error}=await client.storage.from('capas-envios').createSignedUrl(capaCaminho,600);
+      if(error)adicionarTexto(detalhes,'Capa','Não foi possível abrir: '+error.message);
+      else urlCapa=data?.signedUrl||'';
+     }
+     if(urlCapa && /^https:\/\//i.test(urlCapa)){
+      const imagem=document.createElement('img');imagem.src=urlCapa;imagem.alt='Capa enviada pelo artista';imagem.style.cssText='display:block;max-width:180px;max-height:180px;object-fit:contain;margin:12px 0;border-radius:8px';detalhes.appendChild(imagem);
+     }else if(!capaCaminho)adicionarTexto(detalhes,'Capa','Não enviada (opcional durante a análise).');
+     aviso.remove();
+    }catch(e){aviso.className='erro';aviso.textContent=e.message+' Verifique a política SELECT do Storage para o administrador.';arquivosCarregados=false;}
+   }
+   cab.addEventListener('click',()=>{if(!detalhes.hidden)carregarArquivos();});
    if(m.id!==undefined&&m.id!==null&&['pendente','aguardando','em análise','em analise',''].includes(String(m.status||'').toLowerCase().trim())){
     const acoes=document.createElement('div');acoes.className='acoes';
     for(const [rotulo,novo] of [['✅ Aprovar análise','aprovada'],['❌ Rejeitar','rejeitada']]){
@@ -280,9 +310,8 @@ async function listarEnviosArtistas(){
        const {data,error}=await client.from('envios_artistas').update({status:novo}).eq('id',m.id).select('id,status');
        if(error)throw error;if(data?.length!==1)throw new Error('Alteração não confirmada. Verifique as permissões RLS.');
        el('mensagemEnvios').textContent='Status atualizado. Nenhum pagamento foi solicitado.';
-       await listarEnviosArtistas();
       }catch(e){alert('Não foi possível atualizar o envio: '+e.message);}
-      finally{operando=false;botao.disabled=false;}
+      finally{operando=false;botao.disabled=false;await listarEnviosArtistas();}
      });acoes.appendChild(botao);
     }
     detalhes.appendChild(acoes);
