@@ -663,26 +663,14 @@ async function carregarMeusEnvios(){
               // Uma contratação e um pagamento de teste por música, nunca um Pix real.
               const existentes=await apiArtista(tabelaContratacoes+'?select=id,plano,status&envio_id=eq.'+encodeURIComponent(m.id)+'&usuario_id=eq.'+encodeURIComponent(sessaoArtista.user.id)+'&limit=1');
               if(existentes.length){retorno.textContent='Esta música já possui uma contratação registrada. Atualize a lista para visualizar.';await carregarMeusEnvios();return;}
-              const pagamentos=await apiArtista(tabelaPagamentosTeste,{
+              const contratosCriados=await apiArtista(tabelaContratacoes,{
                 method:'POST',headers:{'Content-Type':'application/json',Prefer:'return=representation'},
-                body:JSON.stringify({usuario_id:sessaoArtista.user.id,valor_total:escolhido.valor,status:'pendente'})
+                body:JSON.stringify({envio_id:m.id,usuario_id:sessaoArtista.user.id,plano:escolhido.codigo,valor:escolhido.valor,status:'aguardando_pagamento'})
               });
-              if(!pagamentos?.[0]?.id)throw new Error('Pagamento de teste não retornou identificador.');
-              const pagamentoId=pagamentos[0].id;
-              try{
-                const contratosCriados=await apiArtista(tabelaContratacoes,{
-                  method:'POST',headers:{'Content-Type':'application/json',Prefer:'return=representation'},
-                  body:JSON.stringify({envio_id:m.id,usuario_id:sessaoArtista.user.id,plano:escolhido.codigo,valor:escolhido.valor,status:'aguardando_pagamento',pagamento_teste_id:pagamentoId})
-                });
-                if(!contratosCriados?.[0]?.id)throw new Error('Contratação não retornou identificador.');
-                retorno.textContent='Pedido de teste salvo! Música: '+m.titulo+' | Plano: '+escolhido.nome+' | '+moedaBR(escolhido.valor)+' | Aguardando pagamento simulado. Nenhum Pix real foi gerado.';
-                escolhasPlanos.delete(String(m.id));atualizarResumoPlanos();
-                await carregarMeusEnvios();
-              }catch(erroContrato){
-                // Evitar deixar um pagamento de teste solto se a contratação falhar.
-                try{await apiArtista(tabelaPagamentosTeste+'?id=eq.'+encodeURIComponent(pagamentoId),{method:'DELETE'});}catch(e){console.warn('Pagamento de teste órfão:',pagamentoId,e);}
-                throw erroContrato;
-              }
+              if(!contratosCriados?.[0]?.id)throw new Error('Contratação não retornou identificador.');
+              retorno.textContent='Pedido de teste salvo! Música: '+m.titulo+' | Plano: '+escolhido.nome+' | '+moedaBR(escolhido.valor)+' | Aguardando pagamento. Nenhum Pix real foi gerado.';
+              escolhasPlanos.delete(String(m.id));atualizarResumoPlanos();
+              await carregarMeusEnvios();
             }catch(e){retorno.textContent='Não foi possível registrar o pedido: '+e.message;}
             finally{confirmar.disabled=false;}
           });
