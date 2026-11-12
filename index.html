@@ -25,6 +25,12 @@ button:hover,.btn:hover{filter:brightness(1.12)}
 #aviso{color:#ffd88c}
 footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 .artista-area{max-width:560px;background:#0c1222;border:1px solid #39415a;border-radius:14px;padding:18px;margin-top:18px}.artista-area label{display:block;margin:14px 0 6px}.artista-area input{width:100%;padding:13px;border:1px solid #52607b;border-radius:10px;background:#171f33;color:white;font-size:16px}.artista-area form>button{margin-top:18px}.artista-area input[type="checkbox"]{width:auto;accent-color:#ffbd35}.artista-area .check-artista{display:flex;align-items:flex-start;gap:9px;line-height:1.5}.artista-area .check-artista label{margin:0}.seguranca-artista{border:1px solid #ffbd35;background:#242017;border-radius:12px;padding:14px;margin-top:15px;line-height:1.6}.artista-area a{color:#ffcf69}.artista-abas{display:flex;gap:10px}.artista-abas button{flex:1;background:#20263a;color:#fff}.artista-abas button.aba-ativa{background:linear-gradient(90deg,#e27b0b,#ffca46);color:#15100a}.aviso-artista{font-size:13px;color:#bbc4d6}#mensagemArtista{color:#ffda85;white-space:pre-line}#areaLogada[hidden]{display:none}
+
+/* Termos e condições */
+.termos-link{background:none;border:0;color:#ffcf69;text-decoration:underline;padding:0;border-radius:0;font:inherit;cursor:pointer}
+.termos-modal[hidden]{display:none}.termos-modal{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:20000;display:flex;align-items:center;justify-content:center;padding:16px}
+.termos-janela{width:min(780px,100%);max-height:90vh;display:flex;flex-direction:column;background:#121827;border:1px solid #ffbd35;border-radius:16px;padding:20px;color:#fff}
+.termos-conteudo{overflow-y:auto;line-height:1.65;padding:5px 12px 5px 0}.termos-conteudo h3{color:#ffbd35;margin-bottom:5px}.termos-conteudo p{margin-top:5px}.termos-acoes{display:flex;justify-content:flex-end;padding-top:12px}
 </style>
 </head>
 <body>
@@ -83,7 +89,7 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
       <label for="cpfArtista">CPF do responsável</label><input id="cpfArtista" type="text" inputmode="numeric" autocomplete="off" maxlength="14" placeholder="000.000.000-00" required>
       <label for="whatsappArtista">WhatsApp com DDD</label><input id="whatsappArtista" type="tel" autocomplete="tel" inputmode="tel" maxlength="15" placeholder="(00) 00000-0000" required>
       <div class="seguranca-artista"><strong>🔒 Atenção contra golpes</strong><p>A Rádio Sua Vez utiliza o WhatsApp exclusivamente para comunicar a aprovação de músicas. Nunca pedimos Pix, transferências ou pagamentos por WhatsApp. A contratação e o pagamento serão feitos somente na Área do Artista, dentro do site oficial, após a aprovação da música.</p></div>
-      <div class="check-artista"><input id="aceiteArtista" type="checkbox" required><label for="aceiteArtista">Li as informações de cadastro e estou ciente de que meus dados serão usados para identificar minha conta e administrar solicitações de divulgação. Os Termos de Uso e a Política de Privacidade completos serão disponibilizados antes da abertura pública das contratações.</label></div>
+      <div class="check-artista"><input id="aceiteArtista" type="checkbox" required><label for="aceiteArtista">Li e estou ciente das <button type="button" class="termos-link" id="abrirTermos">Condições de Divulgação Musical</button>. Estou ciente de que o cadastro é gratuito, a avaliação não garante aprovação e os planos de divulgação são pagos somente pelo site após a aprovação. A Política de Privacidade e os termos contratuais definitivos serão apresentados antes da contratação.</label></div>
     </div>
     <label for="emailArtista">E-mail</label><input id="emailArtista" type="email" autocomplete="email" required placeholder="seuemail@exemplo.com">
     <label for="senhaArtista">Senha (mínimo de 8 caracteres)</label><input id="senhaArtista" type="password" autocomplete="new-password" minlength="8" required>
@@ -91,7 +97,7 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
   </form>
   <div id="areaLogada" hidden><p id="boasVindasArtista"></p><p>Seu acesso está ativo. O envio de músicas e o acompanhamento das avaliações serão ligados ao painel na próxima etapa.</p><button type="button" id="sairArtista">Sair da conta</button></div>
   <p id="mensagemArtista" role="status" aria-live="polite"></p>
-  <p class="aviso-artista">O cadastro é gratuito. A música só poderá ser contratada para divulgação depois da avaliação e aprovação.</p>
+  <p class="aviso-artista"><button type="button" class="termos-link" id="abrirTermosRodape">📄 Ler condições de divulgação musical</button></p><p class="aviso-artista">O cadastro é gratuito. A música só poderá ser contratada para divulgação depois da avaliação e aprovação.</p>
 </div>
 </section>
 
@@ -155,6 +161,36 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 <p>A rádio dos novos talentos</p>
 <p>© 2026 Rádio Sua Vez</p>
 </footer>
+
+<div class="termos-modal" id="modalTermos" hidden role="dialog" aria-modal="true" aria-labelledby="tituloTermos">
+  <div class="termos-janela">
+    <h2 id="tituloTermos">📄 Condições de Divulgação Musical — Rádio Sua Vez</h2>
+    <div class="termos-conteudo" tabindex="0">
+      <p><strong>Informações preliminares sobre o funcionamento da plataforma.</strong> Este texto explica o serviço; não substitui os Termos de Uso, o contrato de divulgação e a Política de Privacidade definitivos, que deverão ser disponibilizados antes de qualquer contratação.</p>
+      <h3>1. Finalidade da plataforma</h3>
+      <p>A Rádio Sua Vez — A rádio dos novos talentos é uma plataforma online voltada prioritariamente à divulgação de artistas independentes, compositores, intérpretes, duplas, bandas e novos talentos. Seu objetivo é ampliar a oportunidade de apresentação de produções musicais ao público.</p>
+      <h3>2. Natureza do serviço e remuneração</h3>
+      <p>A Rádio Sua Vez presta serviços de divulgação musical. Não contrata artistas para apresentações e não oferece cachês, salários ou remuneração contratual em troca do envio, da aprovação ou da inclusão de músicas em sua programação. Os artistas que desejarem divulgação poderão contratar voluntariamente planos pagos, após a aprovação da música.</p>
+      <p>Esta condição não representa renúncia a direitos autorais ou conexos nem afasta remunerações eventualmente devidas por lei aos titulares de direitos.</p>
+      <h3>3. Envio e análise</h3>
+      <p>O cadastro e o envio de músicas para avaliação são gratuitos. O envio não assegura aprovação ou inclusão na programação. A rádio poderá analisar aspectos técnicos, editoriais, documentais e indícios de violações de direitos, e solicitar informações adicionais ou rejeitar conteúdos. A avaliação não constitui certificação de ausência de plágio.</p>
+      <h3>4. Direitos e autorizações</h3>
+      <p>Quem envia a música deverá informar corretamente os responsáveis pela obra e pela gravação e possuir as licenças e autorizações necessárias para seu envio e divulgação, incluindo eventuais direitos de terceiros. A rádio também deverá observar suas próprias obrigações legais de licenciamento.</p>
+      <h3>5. Músicas criadas com inteligência artificial</h3>
+      <p>São aceitas produções tradicionais e músicas criadas parcial ou integralmente com inteligência artificial, desde que o responsável disponha das permissões necessárias, respeite as condições das ferramentas utilizadas e não viole direitos de terceiros.</p>
+      <h3>6. Planos e resultados</h3>
+      <p>Após a aprovação, o artista poderá escolher um plano de divulgação disponível na Área do Artista. Preços, prazos, número de execuções, início da vigência, cancelamento e reembolso deverão constar expressamente nas condições apresentadas antes do pagamento. A divulgação não garante fama, seguidores, contratos ou resultados comerciais em plataformas externas.</p>
+      <h3>7. Pagamentos e prevenção a golpes</h3>
+      <p>A Rádio Sua Vez usa o WhatsApp exclusivamente para avisar sobre a aprovação de músicas. Nunca solicita Pix, transferências, cobranças ou comprovantes pelo WhatsApp. A escolha do plano e o pagamento deverão ocorrer exclusivamente na Área do Artista, dentro do site oficial, após a aprovação. Desconfie de pedidos de dinheiro feitos por terceiros em nome da rádio.</p>
+      <h3>8. Dados pessoais e participação de menores</h3>
+      <p>Os dados de cadastro devem ser tratados com segurança e conforme a legislação de proteção de dados. A participação de menores de idade poderá exigir consentimento ou representação do responsável legal, especialmente para a contratação de serviços pagos, conforme a idade e a legislação aplicável.</p>
+      <h3>9. Documentos definitivos</h3>
+      <p>Antes de iniciar contratações, a Rádio Sua Vez disponibilizará Termos de Uso, condições contratuais e Política de Privacidade completos para leitura e aceite, sujeitos a revisão jurídica.</p>
+    </div>
+    <div class="termos-acoes"><button type="button" id="fecharTermos">Fechar</button></div>
+  </div>
+</div>
+
 <script>
 'use strict';
 const supabaseUrl = 'https://utspktlfxeqwrpynnesc.supabase.co';
@@ -267,6 +303,17 @@ document.getElementById('btnSairRadio').addEventListener('click',()=>{
 document.getElementById('btnContinuarOuvindo').addEventListener('click',()=>{
   document.getElementById('avisoContinuarOuvindo').style.display='flex';
 });
+
+// Abertura e fechamento das condições de divulgação.
+const modalTermos=document.getElementById('modalTermos');
+const abrirCondicoes=()=>{modalTermos.hidden=false;document.getElementById('fecharTermos').focus();};
+const fecharCondicoes=()=>{modalTermos.hidden=true;};
+document.getElementById('abrirTermos').addEventListener('click',abrirCondicoes);
+document.getElementById('abrirTermosRodape').addEventListener('click',abrirCondicoes);
+document.getElementById('fecharTermos').addEventListener('click',fecharCondicoes);
+modalTermos.addEventListener('click',e=>{if(e.target===modalTermos)fecharCondicoes();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modalTermos.hidden)fecharCondicoes();});
+
 // Cadastro de artistas via Supabase Auth (sem gravar senhas no site).
 const authBase = supabaseUrl + '/auth/v1';
 const formArtista = document.getElementById('formArtista');
