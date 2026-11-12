@@ -37,6 +37,13 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 #painelArtista[hidden], #acoesArtista[hidden] {display:none!important}
 #painelArtista:not([hidden]) {display:block}
 
+/* Planos de divulgação */
+.planos-lista{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin:12px 0}
+.plano-opcao{border:1px solid #52607b;background:#171f33;border-radius:12px;padding:14px;color:white;cursor:pointer;text-align:left;width:100%;font-weight:normal}
+.plano-opcao strong,.plano-opcao span{display:block;margin:5px 0}
+.plano-opcao.selecionado{border:2px solid #ffbd35;background:#30304a}
+.plano-aviso{color:#cbd5e1;font-size:13px;line-height:1.5}
+.plano-contratacao{border-top:1px solid #39415a;margin-top:12px;padding-top:12px}
 /* Painel de envio e análise */
 #painelEnvios[hidden],#painelAdmin[hidden]{display:none!important}
 .envio-form label{display:block;margin:12px 0 5px}.envio-form input,.envio-form select,.envio-form textarea{width:100%;padding:12px;background:#171f33;border:1px solid #52607b;color:#fff;border-radius:9px;font:inherit}
@@ -548,6 +555,12 @@ document.getElementById('sairArtista').addEventListener('click',async()=>{
 const tabelaEnvios = supabaseUrl + '/rest/v1/envios_artistas';
 const bucketEnvios = supabaseUrl + '/storage/v1/object';
 const bucketCapas = 'capas-envios';
+const PLANOS_DIVULGACAO = Object.freeze([
+  {codigo:'inicial',nome:'Inicial',preco:'R$ 19,90',dias:7,porDia:2,total:14},
+  {codigo:'destaque',nome:'Destaque',preco:'R$ 39,90',dias:15,porDia:3,total:45},
+  {codigo:'premium',nome:'Premium',preco:'R$ 69,90',dias:30,porDia:4,total:120}
+]);
+const tabelaContratacoes = supabaseUrl + '/rest/v1/contratacoes_divulgacao';
 const msgEnvio = document.getElementById('mensagemEnvio');
 const msgAdmin = document.getElementById('mensagemAdmin');
 const escaparHtml = v => String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -592,11 +605,49 @@ async function carregarMeusEnvios(){
     const dados=await apiArtista(tabelaEnvios+'?select=id,titulo,artista,genero,status,criado_em,observacao_admin,capa_caminho&order=criado_em.desc&limit=100');
     lista.replaceChildren();
     if(!dados.length){lista.textContent='Nenhuma música enviada ainda.';return;}
+     const contratos=await apiArtista(tabelaContratacoes+'?select=envio_id,plano,status&limit=1000');
+     const porEnvio=new Map(contratos.map(c=>[String(c.envio_id),c]));
     dados.forEach(m=>{
       const div=document.createElement('div');div.className='envio-item';
       div.innerHTML='<strong>'+escaparHtml(m.titulo)+'</strong><p>'+escaparHtml(m.artista)+' — '+escaparHtml(m.genero)+'</p><p class="status-envio">Situação: '+escaparHtml(m.status)+'</p>'+(m.observacao_admin?'<p>Observação: '+escaparHtml(m.observacao_admin)+'</p>':'')+'<p class="envio-ajuda">'+new Date(m.criado_em).toLocaleString('pt-BR')+'</p>';
       if(m.capa_caminho){const botao=document.createElement('button');botao.type='button';botao.textContent='🖼️ Ver capa';botao.addEventListener('click',async()=>{try{const url=await urlCapaPrivada(m.capa_caminho);let img=div.querySelector('img');if(!img){img=document.createElement('img');img.alt='Capa da música';img.style.cssText='display:block;width:170px;height:170px;object-fit:cover;margin:10px 0;border-radius:12px';div.append(img);}img.src=url;}catch(e){msgEnvio.textContent='Erro ao abrir capa: '+e.message;}});div.append(botao);}
       else {const p=document.createElement('p');p.className='envio-ajuda';p.textContent='Sem capa — será necessária antes da programação.';div.append(p);}
+       if(normalizar(m.status)==='aprovada' && porEnvio.has(String(m.id))){
+         const contrato=porEnvio.get(String(m.id));
+         const plano=PLANOS_DIVULGACAO.find(p=>p.codigo===contrato.plano);
+         const p=document.createElement('p');p.className='plano-aviso';
+         p.textContent='📣 Plano escolhido: '+(plano?plano.nome+' — '+plano.preco:contrato.plano)+' | Situação: '+(contrato.status==='aguardando_pagamento'?'Aguardando pagamento Pix (ainda não disponível)':contrato.status);
+         div.append(p);
+       }
+       if(normalizar(m.status)==='aprovada' && !porEnvio.has(String(m.id))){
+         const area=document.createElement('div');area.className='plano-contratacao';
+         const titulo=document.createElement('h4');titulo.textContent='📣 Contratar divulgação';area.append(titulo);
+         const descricao=document.createElement('p');descricao.className='plano-aviso';descricao.textContent='Escolha um plano. Nenhum pagamento será cobrado agora; a música só poderá entrar na programação após confirmação de pagamento e verificação da capa.';area.append(descricao);
+         const grade=document.createElement('div');grade.className='planos-lista';
+         let escolhido=null;
+         const opcoes=[];
+         PLANOS_DIVULGACAO.forEach(plano=>{
+           const botao=document.createElement('button');botao.type='button';botao.className='plano-opcao';
+           botao.innerHTML='<strong>'+plano.nome+'</strong><span>'+plano.preco+'</span><span>'+plano.dias+' dias</span><span>'+plano.porDia+' execuções/dia</span><span>'+plano.total+' execuções previstas</span>';
+           botao.setAttribute('aria-pressed','false');
+           botao.addEventListener('click',()=>{escolhido=plano;opcoes.forEach(b=>{b.classList.toggle('selecionado',b===botao);b.setAttribute('aria-pressed',String(b===botao));});});
+           opcoes.push(botao);grade.append(botao);
+         });
+         area.append(grade);
+         const confirmar=document.createElement('button');confirmar.type='button';confirmar.textContent='Registrar plano escolhido';
+         const retorno=document.createElement('p');retorno.className='plano-aviso';retorno.setAttribute('role','status');
+         confirmar.addEventListener('click',async()=>{
+           if(!escolhido){retorno.textContent='Selecione um plano primeiro.';return;}
+           if(!confirm('Registrar o plano '+escolhido.nome+' ('+escolhido.preco+') para a música '+m.titulo+'? Não será cobrado nenhum valor agora.'))return;
+           confirmar.disabled=true;retorno.textContent='Registrando...';
+           try{
+             await apiArtista(tabelaContratacoes,{method:'POST',headers:{'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({envio_id:m.id,usuario_id:sessaoArtista.user.id,plano:escolhido.codigo})});
+             retorno.textContent='Plano registrado! Aguardando disponibilização do pagamento Pix no site. Sua música ainda não foi liberada para tocar.';
+             confirmar.hidden=true;grade.hidden=true;descricao.hidden=true;
+           }catch(e){retorno.textContent='Não foi possível registrar: '+e.message;confirmar.disabled=false;}
+         });
+         area.append(confirmar,retorno);div.append(area);
+       }
       lista.append(div);
     });
   }catch(e){lista.textContent='Não foi possível consultar: '+e.message;}
