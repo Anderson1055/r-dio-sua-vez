@@ -67,8 +67,11 @@ function aplicarBusca(){
 }
 const ESTILOS = [
  ['sertanejo','🤠 Sertanejo'],['romantico','❤️ Romântico'],['pop','🎧 Pop'],
- ['gospel','✨ Gospel'],['rock','🎸 Rock'],['funk','🎲 Funk'],
- ['mpb','🎼 MPB'],['internacional','🌐 Internacional']
+ ['gospel','✨ Gospel'],['rock-nacional','🎸 Rock Nacional'],['rock-internacional','🌍 Rock Internacional'],
+ ['funk','🎲 Funk'],['mpb','🎼 MPB'],['internacional','🌐 Internacional'],
+ ['reggae','🇯🇲 Reggae'],['pagode','🥁 Pagode'],['samba','🎶 Samba'],
+ ['gaucha','🧉 Música Gaúcha'],['bandinhas-gauchas','🪗 Bandinhas Gaúchas'],
+ ['forro','💃 Forró'],['eletronica','🎛️ Música Eletrônica']
 ];
 function montarSeletorEstilos(m){
  const painel=document.createElement('div');painel.className='estilos-painel';
@@ -76,7 +79,7 @@ function montarSeletorEstilos(m){
  const grade=document.createElement('div');grade.className='estilos-grade';
  const atuais=Array.isArray(m.estilos)?m.estilos:[];
  for(const [valor,rotulo] of ESTILOS){
-  const label=document.createElement('label');const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.value=valor;checkbox.checked=atuais.includes(valor);
+  const label=document.createElement('label');const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.value=valor;checkbox.checked=atuais.includes(valor)||(valor==='rock-nacional'&&atuais.includes('rock'));
   label.append(checkbox,document.createTextNode(rotulo));grade.appendChild(label);
  }
  painel.appendChild(grade);
