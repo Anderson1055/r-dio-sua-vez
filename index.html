@@ -136,6 +136,11 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
       <label for="generoEnvio">Estilo musical</label>
       <select id="generoEnvio" required><option value="">Selecione</option><option>Sertanejo</option><option>Romântico</option><option>Pop</option><option>Gospel</option><option>Forró</option><option>Pagode</option><option>Rock Nacional</option><option>Rock Internacional</option><option>Funk</option><option>MPB</option><option>Internacional</option><option>Reggae</option><option>Samba</option><option>Música Gaúcha</option><option>Bandinhas Gaúchas</option><option>Música Eletrônica</option><option>Outro</option></select>
       <label for="arquivoEnvio">Arquivo de áudio (MP3, WAV ou M4A; até 25 MB)</label><input id="arquivoEnvio" type="file" accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4" required>
+      <label for="capaEnvio">Capa da música (opcional no envio; JPG, PNG ou WebP, até 5 MB)</label>
+      <input id="capaEnvio" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+      <label class="check-artista"><input id="semCapaEnvio" type="checkbox"> Ainda não tenho capa (a administração poderá adicionar depois)</label>
+      <img id="previewCapaEnvio" alt="Prévia da capa escolhida" hidden style="display:none;width:170px;height:170px;object-fit:cover;border-radius:12px;margin-top:10px">
+      <p class="envio-ajuda">A capa é opcional agora, mas será obrigatória antes de entrar na programação.</p>
       <label class="check-artista"><input id="direitosEnvio" type="checkbox" required> Declaro possuir as autorizações necessárias para enviar esta gravação para avaliação.</label>
       <button type="submit" id="btnEnviarMusica">Enviar música gratuitamente</button>
     </form>
@@ -541,6 +546,7 @@ document.getElementById('sairArtista').addEventListener('click',async()=>{
 // Envio de arquivos e análise. As regras de acesso são aplicadas no Supabase (SQL separado).
 const tabelaEnvios = supabaseUrl + '/rest/v1/envios_artistas';
 const bucketEnvios = supabaseUrl + '/storage/v1/object';
+const bucketCapas = 'capas-envios';
 const msgEnvio = document.getElementById('mensagemEnvio');
 const msgAdmin = document.getElementById('mensagemAdmin');
 const escaparHtml = v => String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -554,16 +560,32 @@ async function urlAudioPrivado(caminho){
   const d=await apiArtista(bucketEnvios+'/sign/envios-musicais/'+caminho,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expiresIn:600})});
   return supabaseUrl+'/storage/v1'+d.signedURL;
 }
+const inputCapaEnvio=document.getElementById('capaEnvio');
+const semCapaEnvio=document.getElementById('semCapaEnvio');
+const previewCapaEnvio=document.getElementById('previewCapaEnvio');
+let previewCapaUrl=null;
+function limparPreviewCapa(){if(previewCapaUrl)URL.revokeObjectURL(previewCapaUrl);previewCapaUrl=null;previewCapaEnvio.hidden=true;previewCapaEnvio.style.display='none';previewCapaEnvio.removeAttribute('src');}
+inputCapaEnvio.addEventListener('change',()=>{
+  limparPreviewCapa();const arquivo=inputCapaEnvio.files[0];
+  if(arquivo){semCapaEnvio.checked=false;previewCapaUrl=URL.createObjectURL(arquivo);previewCapaEnvio.src=previewCapaUrl;previewCapaEnvio.hidden=false;previewCapaEnvio.style.display='block';}
+});
+semCapaEnvio.addEventListener('change',()=>{if(semCapaEnvio.checked){inputCapaEnvio.value='';limparPreviewCapa();}});
+async function urlCapaPrivada(caminho){
+  const d=await apiArtista(bucketEnvios+'/sign/'+bucketCapas+'/'+caminho,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expiresIn:600})});
+  return supabaseUrl+'/storage/v1'+d.signedURL;
+}
 async function carregarMeusEnvios(){
   if(!sessaoArtista?.access_token)return;
   const lista=document.getElementById('listaMeusEnvios');lista.textContent='Carregando...';
   try{
-    const dados=await apiArtista(tabelaEnvios+'?select=id,titulo,artista,genero,status,criado_em,observacao_admin&order=criado_em.desc&limit=100');
+    const dados=await apiArtista(tabelaEnvios+'?select=id,titulo,artista,genero,status,criado_em,observacao_admin,capa_caminho&order=criado_em.desc&limit=100');
     lista.replaceChildren();
     if(!dados.length){lista.textContent='Nenhuma música enviada ainda.';return;}
     dados.forEach(m=>{
       const div=document.createElement('div');div.className='envio-item';
       div.innerHTML='<strong>'+escaparHtml(m.titulo)+'</strong><p>'+escaparHtml(m.artista)+' — '+escaparHtml(m.genero)+'</p><p class="status-envio">Situação: '+escaparHtml(m.status)+'</p>'+(m.observacao_admin?'<p>Observação: '+escaparHtml(m.observacao_admin)+'</p>':'')+'<p class="envio-ajuda">'+new Date(m.criado_em).toLocaleString('pt-BR')+'</p>';
+      if(m.capa_caminho){const botao=document.createElement('button');botao.type='button';botao.textContent='🖼️ Ver capa';botao.addEventListener('click',async()=>{try{const url=await urlCapaPrivada(m.capa_caminho);let img=div.querySelector('img');if(!img){img=document.createElement('img');img.alt='Capa da música';img.style.cssText='display:block;width:170px;height:170px;object-fit:cover;margin:10px 0;border-radius:12px';div.append(img);}img.src=url;}catch(e){msgEnvio.textContent='Erro ao abrir capa: '+e.message;}});div.append(botao);}
+      else {const p=document.createElement('p');p.className='envio-ajuda';p.textContent='Sem capa — será necessária antes da programação.';div.append(p);}
       lista.append(div);
     });
   }catch(e){lista.textContent='Não foi possível consultar: '+e.message;}
@@ -572,7 +594,7 @@ async function carregarAdmin(){
   if(!sessaoArtista?.access_token)return;
   const lista=document.getElementById('listaAdmin');lista.textContent='Carregando...';
   try{
-    const dados=await apiArtista(tabelaEnvios+'?select=id,titulo,artista,genero,status,criado_em,arquivo_caminho,observacao_admin&order=criado_em.desc&limit=100');
+    const dados=await apiArtista(tabelaEnvios+'?select=id,titulo,artista,genero,status,criado_em,arquivo_caminho,capa_caminho,observacao_admin&order=criado_em.desc&limit=100');
     lista.replaceChildren();
     if(!dados.length){lista.textContent='Nenhum envio encontrado.';return;}
     dados.forEach(m=>{
@@ -581,6 +603,8 @@ async function carregarAdmin(){
       const ouvir=document.createElement('button');ouvir.type='button';ouvir.textContent='▶ Ouvir para avaliar';
       ouvir.addEventListener('click',async()=>{try{const url=await urlAudioPrivado(m.arquivo_caminho);let a=div.querySelector('audio');if(!a){a=document.createElement('audio');a.controls=true;div.append(a);}a.src=url;}catch(e){msgAdmin.textContent=e.message;}});
       div.append(ouvir);
+      if(m.capa_caminho){const verCapa=document.createElement('button');verCapa.type='button';verCapa.textContent='🖼️ Ver capa';verCapa.addEventListener('click',async()=>{try{const url=await urlCapaPrivada(m.capa_caminho);let img=div.querySelector('img');if(!img){img=document.createElement('img');img.alt='Capa enviada';img.style.cssText='display:block;width:170px;height:170px;object-fit:cover;margin:10px 0;border-radius:12px';div.append(img);}img.src=url;}catch(e){msgAdmin.textContent='Erro ao abrir capa: '+e.message;}});div.append(verCapa);}
+      else {const p=document.createElement('p');p.className='envio-ajuda';p.textContent='Sem capa — adicionar antes da programação.';div.append(p);}
       if(m.status==='pendente'){
         for(const [rotulo,estado] of [['Aprovar','aprovada'],['Rejeitar','rejeitada']]){
           const b=document.createElement('button');b.type='button';b.textContent=rotulo;
@@ -594,6 +618,8 @@ async function carregarAdmin(){
           });div.append(b);
         }
       }
+      if(m.capa_caminho){const botao=document.createElement('button');botao.type='button';botao.textContent='🖼️ Ver capa';botao.addEventListener('click',async()=>{try{const url=await urlCapaPrivada(m.capa_caminho);let img=div.querySelector('img');if(!img){img=document.createElement('img');img.alt='Capa da música';img.style.cssText='display:block;width:170px;height:170px;object-fit:cover;margin:10px 0;border-radius:12px';div.append(img);}img.src=url;}catch(e){msgEnvio.textContent='Erro ao abrir capa: '+e.message;}});div.append(botao);}
+      else {const p=document.createElement('p');p.className='envio-ajuda';p.textContent='Sem capa — será necessária antes da programação.';div.append(p);}
       lista.append(div);
     });
   }catch(e){lista.textContent='Não foi possível consultar: '+e.message;}
@@ -616,14 +642,27 @@ document.getElementById('formEnvioMusica').addEventListener('submit',async e=>{
     if(!arquivo||arquivo.size>25*1024*1024||arquivo.size===0)throw new Error('Escolha um arquivo de até 25 MB.');
     const extensao=arquivo.name.split('.').pop().toLowerCase();
     if(!['mp3','wav','m4a'].includes(extensao))throw new Error('Formato permitido: MP3, WAV ou M4A.');
+    const capa=inputCapaEnvio.files[0];
+    if(capa){
+      const extensaoCapa=capa.name.split('.').pop().toLowerCase();
+      if(!['jpg','jpeg','png','webp'].includes(extensaoCapa)||!['image/jpeg','image/png','image/webp'].includes(capa.type)||capa.size===0||capa.size>5*1024*1024)throw new Error('Capa inválida. Use JPG, PNG ou WebP de até 5 MB.');
+    }
+    if(!capa&&!semCapaEnvio.checked)throw new Error('Escolha uma capa ou marque que ainda não tem capa.');
     const userId=sessaoArtista.user.id;
     caminho=userId+'/'+crypto.randomUUID()+'.'+extensao;
     const r=await fetch(bucketEnvios+'/envios-musicais/'+caminho,{method:'POST',headers:cabecalhosArtista({'Content-Type':arquivo.type||'application/octet-stream','x-upsert':'false'}),body:arquivo});
     if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.message||d.error||'Falha no envio do arquivo');}
-    await apiArtista(tabelaEnvios,{method:'POST',headers:{'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({usuario_id:userId,titulo:document.getElementById('tituloEnvio').value.trim(),artista:document.getElementById('artistaEnvio').value.trim(),genero:document.getElementById('generoEnvio').value,arquivo_caminho:caminho})});
-    document.getElementById('formEnvioMusica').reset();msgEnvio.textContent='Música enviada gratuitamente! Situação: pendente de análise.';
+    let caminhoCapa=null;
+    if(capa){
+      const ext=capa.name.split('.').pop().toLowerCase();
+      caminhoCapa=userId+'/'+crypto.randomUUID()+'.'+ext;
+      const respostaCapa=await fetch(bucketEnvios+'/'+bucketCapas+'/'+caminhoCapa,{method:'POST',headers:cabecalhosArtista({'Content-Type':capa.type,'x-upsert':'false'}),body:capa});
+      if(!respostaCapa.ok){const d=await respostaCapa.json().catch(()=>({}));throw new Error('Falha no envio da capa: '+(d.message||d.error||respostaCapa.status));}
+    }
+    await apiArtista(tabelaEnvios,{method:'POST' ,headers:{'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({usuario_id:userId,titulo:document.getElementById('tituloEnvio').value.trim(),artista:document.getElementById('artistaEnvio').value.trim(),genero:document.getElementById('generoEnvio').value,arquivo_caminho:caminho,capa_caminho:caminhoCapa})});
+    document.getElementById('formEnvioMusica').reset();limparPreviewCapa();msgEnvio.textContent='Música enviada gratuitamente! Situação: pendente de análise.';
     await carregarMeusEnvios();
-  }catch(err){msgEnvio.textContent='Não foi possível enviar: '+err.message+' (se o arquivo foi enviado, pode ser necessário limpar um arquivo órfão no Storage).';}
+  }catch(err){msgEnvio.textContent='Não foi possível enviar: '+err.message+' (se algum arquivo foi enviado, pode ser necessário limpar arquivos órfãos no Storage).';}
   finally{b.disabled=false;}
 });
 document.getElementById('atualizarEnvios').addEventListener('click',carregarMeusEnvios);
