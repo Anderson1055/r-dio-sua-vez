@@ -154,7 +154,7 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
     <p id="mensagemEnvio" role="status" aria-live="polite"></p>
     <h3>📋 Minhas músicas enviadas</h3>
     <button type="button" id="atualizarEnvios">Atualizar situação</button>
-    <div id="listaMeusEnvios"></div>
+    <p id="resumoPlanos" class="seguranca-artista" role="status">Selecione um plano em cada música aprovada para visualizar o total. Nenhuma cobrança será feita.</p><div id="listaMeusEnvios"></div>
   </div>
   <div id="painelAdmin" hidden>
     <h3>🛡️ Administração — músicas para análise</h3>
@@ -556,11 +556,22 @@ const tabelaEnvios = supabaseUrl + '/rest/v1/envios_artistas';
 const bucketEnvios = supabaseUrl + '/storage/v1/object';
 const bucketCapas = 'capas-envios';
 const PLANOS_DIVULGACAO = Object.freeze([
-  {codigo:'inicial',nome:'Inicial',preco:'R$ 19,90',dias:7,porDia:2,total:14},
-  {codigo:'destaque',nome:'Destaque',preco:'R$ 39,90',dias:15,porDia:3,total:45},
-  {codigo:'premium',nome:'Premium',preco:'R$ 69,90',dias:30,porDia:4,total:120}
+  {codigo:'inicial',nome:'Inicial',valor:19.90,preco:'R$ 19,90',dias:7,porDia:2,total:14},
+  {codigo:'destaque',nome:'Destaque',valor:39.90,preco:'R$ 39,90',dias:15,porDia:3,total:45},
+  {codigo:'premium',nome:'Premium',valor:69.90,preco:'R$ 69,90',dias:30,porDia:4,total:120}
 ]);
 const tabelaContratacoes = supabaseUrl + '/rest/v1/contratacoes_divulgacao';
+const escolhasPlanos = new Map();
+const moedaBR = valor => valor.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+function atualizarResumoPlanos(){
+  const resumo=document.getElementById('resumoPlanos');
+  if(!resumo)return;
+  const escolhas=[...escolhasPlanos.values()];
+  const total=escolhas.reduce((s,p)=>s+p.valor,0);
+  resumo.textContent=escolhas.length
+    ? 'Planos selecionados: '+escolhas.length+' música(s) | Total previsto: '+moedaBR(total)+' — Simulação, sem cobrança.'
+    : 'Selecione um plano em cada música aprovada para visualizar o total. Nenhuma cobrança será feita.';
+}
 const msgEnvio = document.getElementById('mensagemEnvio');
 const msgAdmin = document.getElementById('mensagemAdmin');
 const escaparHtml = v => String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -606,7 +617,8 @@ async function carregarMeusEnvios(){
     lista.replaceChildren();
     if(!dados.length){lista.textContent='Nenhuma música enviada ainda.';return;}
      // A tabela de contratações ainda não existe. Não bloquear a listagem de músicas.
-     const contratos=[];
+     const contratos=[]; // A leitura de contratos será integrada após confirmar as políticas e colunas no Supabase.
+      escolhasPlanos.clear();atualizarResumoPlanos();
      const porEnvio=new Map(contratos.map(c=>[String(c.envio_id),c]));
     dados.forEach(m=>{
       const div=document.createElement('div');div.className='envio-item';
@@ -631,22 +643,13 @@ async function carregarMeusEnvios(){
            const botao=document.createElement('button');botao.type='button';botao.className='plano-opcao';
            botao.innerHTML='<strong>'+plano.nome+'</strong><span>'+plano.preco+'</span><span>'+plano.dias+' dias</span><span>'+plano.porDia+' execuções/dia</span><span>'+plano.total+' execuções previstas</span>';
            botao.setAttribute('aria-pressed','false');
-           botao.addEventListener('click',()=>{escolhido=plano;opcoes.forEach(b=>{b.classList.toggle('selecionado',b===botao);b.setAttribute('aria-pressed',String(b===botao));});});
+           botao.addEventListener('click',()=>{escolhido=plano;escolhasPlanos.set(String(m.id),plano);opcoes.forEach(b=>{b.classList.toggle('selecionado',b===botao);b.setAttribute('aria-pressed',String(b===botao));});atualizarResumoPlanos();});
            opcoes.push(botao);grade.append(botao);
          });
          area.append(grade);
-         const confirmar=document.createElement('button');confirmar.type='button';confirmar.textContent='Contratação em breve';confirmar.disabled=true;
+         const confirmar=document.createElement('button');confirmar.type='button';confirmar.textContent='Pagamento Pix em preparação';confirmar.disabled=true;
          const retorno=document.createElement('p');retorno.className='plano-aviso';retorno.setAttribute('role','status');
-         confirmar.addEventListener('click',async()=>{
-           if(!escolhido){retorno.textContent='Selecione um plano primeiro.';return;}
-           if(!confirm('Registrar o plano '+escolhido.nome+' ('+escolhido.preco+') para a música '+m.titulo+'? Não será cobrado nenhum valor agora.'))return;
-           confirmar.disabled=true;retorno.textContent='Registrando...';
-           try{
-             await apiArtista(tabelaContratacoes,{method:'POST',headers:{'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({envio_id:m.id,usuario_id:sessaoArtista.user.id,plano:escolhido.codigo})});
-             retorno.textContent='Plano registrado! Aguardando disponibilização do pagamento Pix no site. Sua música ainda não foi liberada para tocar.';
-             confirmar.hidden=true;grade.hidden=true;descricao.hidden=true;
-           }catch(e){retorno.textContent='Não foi possível registrar: '+e.message;confirmar.disabled=false;}
-         });
+          retorno.textContent='Escolha apenas para simulação. A contratação será habilitada quando o pagamento seguro estiver pronto.';
          area.append(confirmar,retorno);div.append(area);
        }
       lista.append(div);
