@@ -125,7 +125,7 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
     </form>
     <p><button type="button" class="termos-link" id="voltarLogin">← Voltar ao login</button></p>
   </div>
-  <div id="areaLogada" hidden><p id="boasVindasArtista"></p><p>Seu acesso está ativo. O envio de músicas e o acompanhamento das avaliações serão ligados ao painel na próxima etapa.</p><button type="button" id="sairArtista">Sair da conta</button></div>
+  <div id="areaLogada" hidden><p id="boasVindasArtista"></p><p>Seu acesso está ativo. Acompanhe seus envios e as avaliações abaixo.</p><button type="button" id="sairArtista">Sair da conta</button></div>
 
   <div id="painelEnvios" hidden>
     <h3>🎵 Enviar música para avaliação gratuita</h3>
@@ -279,6 +279,7 @@ function informarRadio(m) {
   if (m && m.capa) {capa.src=m.capa;capa.style.display='inline-block';}
   else {capa.removeAttribute('src');capa.style.display='none';}
 }
+// ATENÇÃO: a tabela publica musicas deve conter somente faixas liberadas para veiculacao apos pagamento.
 async function carregarMusicas() {
   if (carregamentoEmAndamento) return carregamentoEmAndamento;
   carregamentoEmAndamento = (async () => {
@@ -551,7 +552,17 @@ const msgEnvio = document.getElementById('mensagemEnvio');
 const msgAdmin = document.getElementById('mensagemAdmin');
 const escaparHtml = v => String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function cabecalhosArtista(extra={}){return {apikey:supabaseKey,Authorization:'Bearer '+sessaoArtista.access_token,...extra};}
+let renovacaoSessao=null;
+async function garantirSessaoValida(){
+  if(!sessaoArtista?.access_token)throw new Error('Entre na sua conta novamente.');
+  if(!sessaoArtista.expires_at || sessaoArtista.expires_at*1000>Date.now()+60000)return;
+  if(!sessaoArtista.refresh_token)throw new Error('Sessão expirada. Entre novamente.');
+  if(!renovacaoSessao)renovacaoSessao=requisicaoAuth('/token?grant_type=refresh_token',{refresh_token:sessaoArtista.refresh_token})
+    .then(nova=>{exibirSessaoArtista(nova);return nova;}).finally(()=>{renovacaoSessao=null;});
+  await renovacaoSessao;
+}
 async function apiArtista(url,opcoes={}){
+  await garantirSessaoValida();
   const r=await fetch(url,{...opcoes,headers:{...cabecalhosArtista(),...(opcoes.headers||{})}});
   if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.message||d.error||'Erro HTTP '+r.status);}
   return r.status===204?null:r.json();
@@ -618,8 +629,6 @@ async function carregarAdmin(){
           });div.append(b);
         }
       }
-      if(m.capa_caminho){const botao=document.createElement('button');botao.type='button';botao.textContent='🖼️ Ver capa';botao.addEventListener('click',async()=>{try{const url=await urlCapaPrivada(m.capa_caminho);let img=div.querySelector('img');if(!img){img=document.createElement('img');img.alt='Capa da música';img.style.cssText='display:block;width:170px;height:170px;object-fit:cover;margin:10px 0;border-radius:12px';div.append(img);}img.src=url;}catch(e){msgEnvio.textContent='Erro ao abrir capa: '+e.message;}});div.append(botao);}
-      else {const p=document.createElement('p');p.className='envio-ajuda';p.textContent='Sem capa — será necessária antes da programação.';div.append(p);}
       lista.append(div);
     });
   }catch(e){lista.textContent='Não foi possível consultar: '+e.message;}
@@ -628,7 +637,7 @@ async function verificarAdministrador(){
   const painel=document.getElementById('painelAdmin');painel.hidden=true;
   if(!sessaoArtista?.access_token)return;
   try{
-    const dados=await apiArtista(supabaseUrl+'/rest/v1/admin_usuarios?select=user_id&limit=1');
+    const dados=await apiArtista(supabaseUrl+'/rest/v1/admin_usuarios?select=user_id&user_id=eq.'+encodeURIComponent(sessaoArtista.user.id)+'&limit=1');
     painel.hidden=!dados.length;
     if(dados.length)await carregarAdmin();
   }catch(e){console.warn('Permissão administrativa indisponível:',e.message);}
@@ -637,7 +646,7 @@ document.getElementById('formEnvioMusica').addEventListener('submit',async e=>{
   e.preventDefault();const b=document.getElementById('btnEnviarMusica');b.disabled=true;msgEnvio.textContent='Enviando...';
   let caminho=null;
   try{
-    if(!sessaoArtista?.access_token)throw new Error('Entre na sua conta novamente.');
+    await garantirSessaoValida();
     const arquivo=document.getElementById('arquivoEnvio').files[0];
     if(!arquivo||arquivo.size>25*1024*1024||arquivo.size===0)throw new Error('Escolha um arquivo de até 25 MB.');
     const extensao=arquivo.name.split('.').pop().toLowerCase();
@@ -668,7 +677,19 @@ document.getElementById('formEnvioMusica').addEventListener('submit',async e=>{
 document.getElementById('atualizarEnvios').addEventListener('click',carregarMeusEnvios);
 document.getElementById('atualizarAdmin').addEventListener('click',carregarAdmin);
 
-try{const guardada=JSON.parse(sessionStorage.getItem('radioSessaoArtista')||'null');if(guardada?.access_token && guardada?.expires_at && guardada.expires_at*1000>Date.now())exibirSessaoArtista(guardada);}catch(e){sessionStorage.removeItem('radioSessaoArtista');}
+async function restaurarSessaoArtista(){
+  try{
+    const guardada=JSON.parse(sessionStorage.getItem('radioSessaoArtista')||'null');
+    if(!guardada)return;
+    if(guardada.access_token && guardada.expires_at && guardada.expires_at*1000>Date.now()+60000){exibirSessaoArtista(guardada);return;}
+    if(guardada.refresh_token){
+      const nova=await requisicaoAuth('/token?grant_type=refresh_token',{refresh_token:guardada.refresh_token});
+      exibirSessaoArtista(nova);return;
+    }
+    exibirSessaoArtista(null);
+  }catch(e){console.warn('Sessão expirada:',e.message);exibirSessaoArtista(null);}
+}
+restaurarSessaoArtista();
 carregarMusicas();
 setInterval(carregarMusicas,60000);
 </script>
