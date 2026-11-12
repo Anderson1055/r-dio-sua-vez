@@ -31,6 +31,11 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 .termos-modal[hidden]{display:none}.termos-modal{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:20000;display:flex;align-items:center;justify-content:center;padding:16px}
 .termos-janela{width:min(780px,100%);max-height:90vh;display:flex;flex-direction:column;background:#121827;border:1px solid #ffbd35;border-radius:16px;padding:20px;color:#fff}
 .termos-conteudo{overflow-y:auto;line-height:1.65;padding:5px 12px 5px 0}.termos-conteudo h3{color:#ffbd35;margin-bottom:5px}.termos-conteudo p{margin-top:5px}.termos-acoes{display:flex;justify-content:flex-end;padding-top:12px}
+.artista-area[hidden],.artista-abas[hidden],#camposCadastro[hidden],#formArtista[hidden],#areaLogada[hidden]{display:none!important}
+.acoes-artista{display:flex;flex-wrap:wrap;gap:12px;margin:18px 0 0}.acoes-artista button{min-width:155px}.fechar-cadastro{margin:0 0 14px;background:#20263a;color:#fff;border:1px solid #52607b;padding:9px 16px}
+/* Garante que os formulários permaneçam ocultos até clicar no botão. */
+#painelArtista[hidden], #acoesArtista[hidden] {display:none!important}
+#painelArtista:not([hidden]) {display:block}
 </style>
 </head>
 <body>
@@ -80,7 +85,9 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 <h2>📣 Divulgue sua música aqui!</h2>
 <p>Você é artista independente? Sua música merece ser ouvida!</p>
 <p>Cadastre-se gratuitamente para acompanhar suas músicas e solicitar uma avaliação. Aceitamos músicas tradicionais e criadas com inteligência artificial, desde que você tenha as autorizações necessárias.</p>
-<div class="artista-area">
+<div class="acoes-artista" id="acoesArtista"><button type="button" id="mostrarCadastro" aria-expanded="false" aria-controls="painelArtista">📝 Criar conta</button><button type="button" id="mostrarLogin" aria-expanded="false" aria-controls="painelArtista">🔐 Já tenho conta</button></div>
+<div class="artista-area" id="painelArtista" hidden>
+  <button type="button" id="fecharPainelArtista" class="fechar-cadastro">✕ Fechar painel</button>
   <div class="artista-abas"><button type="button" id="abaCadastro" class="aba-ativa">Criar conta</button><button type="button" id="abaLogin">Entrar</button></div>
   <form id="formArtista">
     <div id="camposCadastro">
@@ -323,6 +330,25 @@ const abaCadastro = document.getElementById('abaCadastro');
 const abaLogin = document.getElementById('abaLogin');
 let modoCadastro = true;
 let sessaoArtista = null;
+const painelArtista = document.getElementById('painelArtista');
+// O cadastro começa recolhido, mostrando somente as ações.
+painelArtista.hidden = true;
+const acoesArtista = document.getElementById('acoesArtista');
+function abrirPainelArtista(cadastro){
+  painelArtista.hidden=false;
+  acoesArtista.hidden=true;
+  trocarAbaArtista(cadastro);
+  document.getElementById('mostrarCadastro').setAttribute('aria-expanded','true');
+  document.getElementById('mostrarLogin').setAttribute('aria-expanded','true');
+}
+document.getElementById('mostrarCadastro').addEventListener('click',()=>abrirPainelArtista(true));
+document.getElementById('mostrarLogin').addEventListener('click',()=>abrirPainelArtista(false));
+document.getElementById('fecharPainelArtista').addEventListener('click',()=>{
+  painelArtista.hidden=true;
+  acoesArtista.hidden=false;
+  document.getElementById('mostrarCadastro').setAttribute('aria-expanded','false');
+  document.getElementById('mostrarLogin').setAttribute('aria-expanded','false');
+});
 function trocarAbaArtista(cadastro){
   modoCadastro=cadastro;camposCadastro.hidden=!cadastro;
   abaCadastro.classList.toggle('aba-ativa',cadastro);abaLogin.classList.toggle('aba-ativa',!cadastro);
@@ -336,6 +362,7 @@ abaLogin.addEventListener('click',()=>trocarAbaArtista(false));
 function exibirSessaoArtista(sessao){
   sessaoArtista=sessao;
   const logado=!!sessao?.access_token;
+  if(logado){painelArtista.hidden=false;acoesArtista.hidden=true;}
   document.getElementById('areaLogada').hidden=!logado;
   document.getElementById('formArtista').hidden=logado;
   document.querySelector('.artista-abas').hidden=logado;
