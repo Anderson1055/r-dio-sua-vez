@@ -622,7 +622,7 @@ async function carregarMeusEnvios(){
     lista.replaceChildren();
     if(!dados.length){lista.textContent='Nenhuma música enviada ainda.';return;}
      // A tabela de contratações ainda não existe. Não bloquear a listagem de músicas.
-     const contratos=[]; // A leitura de contratos será integrada após confirmar as políticas e colunas no Supabase.
+     const contratos=[]; // Simulação local: nenhum contrato ou pagamento é gravado no banco.
       escolhasPlanos.clear();atualizarResumoPlanos();
      const porEnvio=new Map(contratos.map(c=>[String(c.envio_id),c]));
     dados.forEach(m=>{
@@ -640,7 +640,7 @@ async function carregarMeusEnvios(){
        if(normalizar(m.status)==='aprovada' && !porEnvio.has(String(m.id))){
          const area=document.createElement('div');area.className='plano-contratacao';
          const titulo=document.createElement('h4');titulo.textContent='📣 Contratar divulgação';area.append(titulo);
-         const descricao=document.createElement('p');descricao.className='plano-aviso';descricao.textContent='Planos em preparação. Você pode conhecer as opções, mas a contratação e o pagamento Pix ainda não estão disponíveis. A música só entrará na programação após pagamento confirmado e capa verificada.';area.append(descricao);
+         const descricao=document.createElement('p');descricao.className='plano-aviso';descricao.textContent='Planos em preparação. Você pode simular um pedido, mas a contratação e o pagamento Pix reais ainda não estão disponíveis. A música só entrará na programação após pagamento confirmado e capa verificada.';area.append(descricao);
          const grade=document.createElement('div');grade.className='planos-lista';
          let escolhido=null;
          const opcoes=[];
@@ -652,9 +652,14 @@ async function carregarMeusEnvios(){
            opcoes.push(botao);grade.append(botao);
          });
          area.append(grade);
-         const confirmar=document.createElement('button');confirmar.type='button';confirmar.textContent='Pagamento Pix em preparação';confirmar.disabled=true;
+         const confirmar=document.createElement('button');confirmar.type='button';confirmar.textContent='🧪 Simular pedido Pix (sem pagamento)';
          const retorno=document.createElement('p');retorno.className='plano-aviso';retorno.setAttribute('role','status');
-          retorno.textContent='Escolha apenas para simulação. A contratação será habilitada quando o pagamento seguro estiver pronto.';
+          retorno.textContent='Teste demonstrativo: nenhum Pix será gerado e nenhum pagamento será cobrado.';
+          confirmar.addEventListener('click',()=>{
+            if(!escolhido){retorno.textContent='Selecione um plano antes de simular.';return;}
+            const referencia='TESTE-'+String(m.id).slice(0,8).toUpperCase();
+            retorno.textContent='🧪 PEDIDO SIMULADO | Referência: '+referencia+' | Música: '+m.titulo+' | Plano: '+escolhido.nome+' | Valor: '+moedaBR(escolhido.valor)+' | Status: aguardando pagamento (simulado). Nenhum Pix real foi criado, nenhum valor foi cobrado e a música NÃO foi liberada para programação.';
+          });
          area.append(confirmar,retorno);div.append(area);
        }
       lista.append(div);
