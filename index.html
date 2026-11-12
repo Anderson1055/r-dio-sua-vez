@@ -605,7 +605,8 @@ async function carregarMeusEnvios(){
     const dados=await apiArtista(tabelaEnvios+'?select=id,titulo,artista,genero,status,criado_em,observacao_admin,capa_caminho&order=criado_em.desc&limit=100');
     lista.replaceChildren();
     if(!dados.length){lista.textContent='Nenhuma música enviada ainda.';return;}
-     const contratos=await apiArtista(tabelaContratacoes+'?select=envio_id,plano,status&limit=1000');
+     // A tabela de contratações ainda não existe. Não bloquear a listagem de músicas.
+     const contratos=[];
      const porEnvio=new Map(contratos.map(c=>[String(c.envio_id),c]));
     dados.forEach(m=>{
       const div=document.createElement('div');div.className='envio-item';
@@ -622,7 +623,7 @@ async function carregarMeusEnvios(){
        if(normalizar(m.status)==='aprovada' && !porEnvio.has(String(m.id))){
          const area=document.createElement('div');area.className='plano-contratacao';
          const titulo=document.createElement('h4');titulo.textContent='📣 Contratar divulgação';area.append(titulo);
-         const descricao=document.createElement('p');descricao.className='plano-aviso';descricao.textContent='Escolha um plano. Nenhum pagamento será cobrado agora; a música só poderá entrar na programação após confirmação de pagamento e verificação da capa.';area.append(descricao);
+         const descricao=document.createElement('p');descricao.className='plano-aviso';descricao.textContent='Planos em preparação. Você pode conhecer as opções, mas a contratação e o pagamento Pix ainda não estão disponíveis. A música só entrará na programação após pagamento confirmado e capa verificada.';area.append(descricao);
          const grade=document.createElement('div');grade.className='planos-lista';
          let escolhido=null;
          const opcoes=[];
@@ -634,7 +635,7 @@ async function carregarMeusEnvios(){
            opcoes.push(botao);grade.append(botao);
          });
          area.append(grade);
-         const confirmar=document.createElement('button');confirmar.type='button';confirmar.textContent='Registrar plano escolhido';
+         const confirmar=document.createElement('button');confirmar.type='button';confirmar.textContent='Contratação em breve';confirmar.disabled=true;
          const retorno=document.createElement('p');retorno.className='plano-aviso';retorno.setAttribute('role','status');
          confirmar.addEventListener('click',async()=>{
            if(!escolhido){retorno.textContent='Selecione um plano primeiro.';return;}
