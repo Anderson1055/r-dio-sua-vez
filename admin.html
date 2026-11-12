@@ -31,6 +31,7 @@
 <main id="areaAdmin" hidden>
 <section class="card"><h2>🎵 Adicionar música</h2>
 <form id="formAdicionar"><label for="nomeMusica">Nome da música</label><input id="nomeMusica" type="text" placeholder="Ex.: Meu Girassol" required maxlength="200"><label for="nomeArtista">Nome do artista</label><input id="nomeArtista" type="text" placeholder="Ex.: Anderson Picoloto" required maxlength="200"><label for="arquivoMp3">Arquivo MP3</label><input id="arquivoMp3" type="file" accept="audio/mpeg,.mp3" required><label for="arquivoCapa">Capa da música</label><input id="arquivoCapa" type="file" accept="image/png,image/jpeg,image/webp" required><button type="submit" id="btnAdicionarMusica">Adicionar música</button></form><p><small>As músicas novas entram em “Aguardando aprovação”.</small></p></section>
+<section class="card" id="secaoEnvios"><h2>📨 Envios dos artistas para análise</h2><p class="muted">Os envios desta seção vêm da tabela <code>envios_artistas</code>. A aprovação aqui não coloca a música automaticamente no ar nem solicita pagamento.</p><button type="button" id="btnAtualizarEnvios">🔄 Atualizar envios dos artistas</button><p id="mensagemEnvios" role="status"></p><div id="listaEnviosArtistas" class="lista-rolagem" aria-label="Envios dos artistas"></div></section>
 <section class="card"><h2>🎵 Biblioteca de músicas</h2><p class="ok"><strong>🔎 Pesquisa, rolagem e múltiplos estilos — versão categorias</strong></p><button type="button" id="btnListarMusicas">🔄 Atualizar lista de músicas</button><p id="mensagemPainel" role="status"></p>
 <details open><summary>🕒 Aguardando aprovação (<span id="qtdPendentes">0</span>)</summary><label for="busca-aguardando">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-aguardando" data-categoria="aguardando" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-aguardando" aria-live="polite"></p><div id="listaMusicas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
 <details><summary>✅ Músicas aprovadas (<span id="qtdAprovadas">0</span>)</summary><label for="busca-aprovada">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-aprovada" data-categoria="aprovada" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-aprovada" aria-live="polite"></p><div id="listaAprovadas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
@@ -105,7 +106,7 @@ const destinos = {aguardando:'listaMusicas',aprovada:'listaAprovadas',rejeitada:
 const contadores = {aguardando:'qtdPendentes',aprovada:'qtdAprovadas',rejeitada:'qtdRejeitadas',lixeira:'qtdLixeira'};
 function mensagem(texto, tipo=''){el('mensagemPainel').textContent=texto;el('mensagemPainel').className=tipo;}
 async function adminAutorizado(){const {data,error}=await client.auth.getUser();return !error && data?.user?.id===ADMIN_ID;}
-async function atualizarAcesso(){const autorizado=await adminAutorizado();el('loginAdmin').hidden=autorizado;el('areaAdmin').hidden=!autorizado;if(autorizado)await listarMusicas();}
+async function atualizarAcesso(){const autorizado=await adminAutorizado();el('loginAdmin').hidden=autorizado;el('areaAdmin').hidden=!autorizado;if(autorizado){await listarMusicas();await listarEnviosArtistas();}}
 el('formLogin').addEventListener('submit',async event=>{
  event.preventDefault();const botao=el('btnEntrar');botao.disabled=true;el('mensagemLogin').textContent='Entrando...';
  try{const {data,error}=await client.auth.signInWithPassword({email:el('emailAdmin').value.trim(),password:el('senhaAdmin').value});if(error)throw error;if(data.user?.id!==ADMIN_ID){await client.auth.signOut();throw new Error('Acesso não autorizado.');}el('senhaAdmin').value='';el('mensagemLogin').textContent='';await atualizarAcesso();}catch(e){el('mensagemLogin').textContent='Erro no login: '+e.message;}finally{botao.disabled=false;}
@@ -233,6 +234,68 @@ el('btnEsvaziarLixeira').addEventListener('click',async()=>{
  const resumo='Excluídas: '+sucessos+' de '+quantidade+'.'+(falhas.length?'\nFalhas:\n'+falhas.join('\n'):'')+(avisos.length?'\nAvisos:\n'+avisos.join('\n'):'');
  mensagem(resumo,falhas.length||avisos.length?'aviso':'ok');alert(resumo);
 });
+// Envios de artistas são registros independentes da biblioteca de músicas.
+// Não são inseridos automaticamente em "musicas" ao aprovar.
+let carregandoEnvios=false;
+const camposEnvio=(obj,nomes)=>{for(const n of nomes){if(obj[n]!==undefined&&obj[n]!==null&&String(obj[n]).trim()!=='')return String(obj[n]);}return '';};
+function textoEnvio(obj,nomes,padrao='Não informado'){return camposEnvio(obj,nomes)||padrao;}
+function adicionarTexto(parent,rotulo,valor){const p=document.createElement('p');const strong=document.createElement('strong');strong.textContent=rotulo+': ';p.append(strong,document.createTextNode(valor));parent.appendChild(p);}
+async function listarEnviosArtistas(){
+ if(carregandoEnvios)return;
+ carregandoEnvios=true;el('btnAtualizarEnvios').disabled=true;
+ const lista=el('listaEnviosArtistas');lista.replaceChildren();el('mensagemEnvios').textContent='Carregando envios...';
+ try{
+  if(!(await adminAutorizado()))throw new Error('Acesso não autorizado.');
+  const registros=[];const lote=500;
+  for(let inicio=0;inicio<10000;inicio+=lote){
+   const {data,error}=await client.from('envios_artistas').select('*').range(inicio,inicio+lote-1);
+   if(error)throw error;
+   registros.push(...(data||[]));if(!data||data.length<lote)break;
+  }
+  const pendentes=registros.filter(m=>['pendente','aguardando','em análise','em analise',''].includes(String(m.status||'').toLowerCase().trim()));
+  const outros=registros.filter(m=>!pendentes.includes(m));
+  for(const m of [...pendentes,...outros]){
+   const card=document.createElement('div');card.className='musica';
+   const titulo=textoEnvio(m,['titulo','nome_musica','musica','titulo_musica'],'Música sem título');
+   const artista=textoEnvio(m,['artista','nome_artista','nome','artista_nome'],'Artista não informado');
+   const status=textoEnvio(m,['status'],'pendente');
+   const cab=document.createElement('button');cab.type='button';cab.className='musica-cabecalho';cab.textContent='🎵 '+titulo+' — '+artista+' ('+status+') ▾';
+   const detalhes=document.createElement('div');detalhes.className='musica-conteudo';detalhes.hidden=true;
+   cab.addEventListener('click',()=>{detalhes.hidden=!detalhes.hidden;cab.setAttribute('aria-expanded',String(!detalhes.hidden));});
+   adicionarTexto(detalhes,'Situação',status);
+   const email=camposEnvio(m,['email','email_artista','contato_email']);if(email)adicionarTexto(detalhes,'E-mail',email);
+   const whatsapp=camposEnvio(m,['whatsapp','telefone','celular']);if(whatsapp)adicionarTexto(detalhes,'WhatsApp',whatsapp);
+   const audio=camposEnvio(m,['arquivo_url','audio_url','mp3_url','url_musica','musica_url','arquivo_mp3']);
+   if(/^https:\/\//i.test(audio)){const player=document.createElement('audio');player.controls=true;player.preload='none';player.src=audio;detalhes.appendChild(player);}
+   else adicionarTexto(detalhes,'Áudio',audio?'Arquivo cadastrado (endereço não reproduzível)':'Campo de áudio não identificado');
+   const capa=camposEnvio(m,['capa_url','url_capa']);if(/^https:\/\//i.test(capa)){const a=document.createElement('a');a.href=capa;a.target='_blank';a.rel='noopener noreferrer';a.textContent='🖼️ Ver capa enviada';detalhes.appendChild(a);}else adicionarTexto(detalhes,'Capa','Não identificada ou não enviada (opcional na análise)');
+   if(m.id!==undefined&&m.id!==null&&['pendente','aguardando','em análise','em analise',''].includes(String(m.status||'').toLowerCase().trim())){
+    const acoes=document.createElement('div');acoes.className='acoes';
+    for(const [rotulo,novo] of [['✅ Aprovar análise','aprovada'],['❌ Rejeitar','rejeitada']]){
+     const botao=criarBotao(rotulo,async()=>{
+      if(operando||!(await adminAutorizado()))return;
+      if(!confirm(rotulo+' o envio “'+titulo+'”? Isso altera apenas o status do envio, não publica a música.'))return;
+      operando=true;botao.disabled=true;
+      try{
+       const {data,error}=await client.from('envios_artistas').update({status:novo}).eq('id',m.id).select('id,status');
+       if(error)throw error;if(data?.length!==1)throw new Error('Alteração não confirmada. Verifique as permissões RLS.');
+       el('mensagemEnvios').textContent='Status atualizado. Nenhum pagamento foi solicitado.';
+       await listarEnviosArtistas();
+      }catch(e){alert('Não foi possível atualizar o envio: '+e.message);}
+      finally{operando=false;botao.disabled=false;}
+     });acoes.appendChild(botao);
+    }
+    detalhes.appendChild(acoes);
+   }
+   card.append(cab,detalhes);lista.appendChild(card);
+  }
+  if(!registros.length){const p=document.createElement('p');p.textContent='Nenhum envio encontrado na tabela envios_artistas.';lista.appendChild(p);}
+  el('mensagemEnvios').textContent='Envios encontrados: '+registros.length+' | Aguardando análise: '+pendentes.length+'.';
+ }catch(e){el('mensagemEnvios').textContent='Erro ao carregar envios: '+e.message;}
+ finally{carregandoEnvios=false;el('btnAtualizarEnvios').disabled=false;}
+}
+el('btnAtualizarEnvios').addEventListener('click',listarEnviosArtistas);
+
 el('btnListarMusicas').addEventListener('click',listarMusicas);
 document.querySelectorAll('.busca-categoria').forEach(campo=>campo.addEventListener('input',aplicarBusca));
 el('formAdicionar').addEventListener('submit',async event=>{
