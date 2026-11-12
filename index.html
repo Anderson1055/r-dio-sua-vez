@@ -323,6 +323,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modalTermos.hidden
 
 // Cadastro de artistas via Supabase Auth (sem gravar senhas no site).
 const authBase = supabaseUrl + '/auth/v1';
+const urlRetornoCadastro = 'https://anderson1055.github.io/r-dio-sua-vez/';
 const formArtista = document.getElementById('formArtista');
 const mensagemArtista = document.getElementById('mensagemArtista');
 const camposCadastro = document.getElementById('camposCadastro');
@@ -406,9 +407,9 @@ formArtista.addEventListener('submit',async e=>{
       if(!cpfValido(cpf))throw new Error('Informe um CPF válido.');
       if(whatsapp.length!==11)throw new Error('Informe WhatsApp com DDD e 9 dígitos.');
       if(!document.getElementById('aceiteArtista').checked)throw new Error('Confirme a ciência das informações de cadastro.');
-      const dados=await requisicaoAuth('/signup',{email,password,data:{nome_completo:nomeCompleto,nome_artistico:nome,cpf:cpf,whatsapp:whatsapp}});
+      const dados=await requisicaoAuth('/signup?email_redirect_to='+encodeURIComponent(urlRetornoCadastro),{email,password,data:{nome_completo:nomeCompleto,nome_artistico:nome,cpf:cpf,whatsapp:whatsapp}});
       if(dados.access_token){exibirSessaoArtista(dados);mensagemArtista.textContent='Conta criada e conectada!';}
-      else mensagemArtista.textContent='Cadastro solicitado. Verifique seu e-mail para confirmar a conta, caso a confirmação esteja ativada no Supabase. Depois volte e clique em Entrar.';
+      else mensagemArtista.textContent='Cadastro solicitado! Abra seu e-mail, confirme sua conta e depois volte à Rádio Sua Vez para clicar em Já tenho conta.';
     }else{
       const dados=await requisicaoAuth('/token?grant_type=password',{email,password});
       exibirSessaoArtista(dados);mensagemArtista.textContent='Login realizado.';
