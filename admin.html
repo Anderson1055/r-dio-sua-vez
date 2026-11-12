@@ -20,6 +20,9 @@
 .estilos-grade label{display:flex;align-items:center;gap:7px;background:#26334c;border-radius:7px;padding:9px;font-size:13px;cursor:pointer}
 .estilos-grade input{width:auto;margin:0;accent-color:#ffbd35}
 .estilos-painel button{margin-top:12px}.estilos-resumo{font-size:12px;color:#a8f0be;margin:6px 0}
+/* Contratações de teste */
+.pedido-card{padding:15px;border:1px solid #44516a;border-radius:12px;margin:12px 0;background:#1b2438;overflow-wrap:anywhere}
+.pedido-card p{margin:7px 0}.pedido-card button{margin-top:10px}
 </style>
 </head>
 <body>
@@ -32,6 +35,7 @@
 <section class="card"><h2>🎵 Adicionar música</h2>
 <form id="formAdicionar"><label for="nomeMusica">Nome da música</label><input id="nomeMusica" type="text" placeholder="Ex.: Meu Girassol" required maxlength="200"><label for="nomeArtista">Nome do artista</label><input id="nomeArtista" type="text" placeholder="Ex.: Anderson Picoloto" required maxlength="200"><label for="arquivoMp3">Arquivo MP3</label><input id="arquivoMp3" type="file" accept="audio/mpeg,.mp3" required><label for="arquivoCapa">Capa da música</label><input id="arquivoCapa" type="file" accept="image/png,image/jpeg,image/webp" required><button type="submit" id="btnAdicionarMusica">Adicionar música</button></form><p><small>As músicas novas entram em “Aguardando aprovação”.</small></p></section>
 <section class="card" id="secaoEnvios"><h2>📨 Envios dos artistas para análise</h2><p class="muted">Os envios desta seção vêm da tabela <code>envios_artistas</code>. A aprovação aqui não coloca a música automaticamente no ar nem solicita pagamento.</p><button type="button" id="btnAtualizarEnvios">🔄 Atualizar envios dos artistas</button><p id="mensagemEnvios" role="status"></p><div id="listaEnviosArtistas" class="lista-rolagem" aria-label="Envios dos artistas"></div></section>
+<section class="card" id="secaoContratacoes"><h2>💳 Contratações de divulgação — testes</h2><p class="muted">Pedidos registrados no Supabase. Esta área trabalha somente com confirmações simuladas; não gera Pix nem coloca músicas na programação.</p><button type="button" id="btnAtualizarContratacoes">🔄 Atualizar contratações</button><p id="mensagemContratacoes" role="status"></p><div id="listaContratacoes" aria-label="Contratações registradas"></div></section>
 <section class="card"><h2>🎵 Biblioteca de músicas</h2><p class="ok"><strong>🔎 Pesquisa, rolagem e múltiplos estilos — versão categorias</strong></p><button type="button" id="btnListarMusicas">🔄 Atualizar lista de músicas</button><p id="mensagemPainel" role="status"></p>
 <details open><summary>🕒 Aguardando aprovação (<span id="qtdPendentes">0</span>)</summary><label for="busca-aguardando">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-aguardando" data-categoria="aguardando" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-aguardando" aria-live="polite"></p><div id="listaMusicas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
 <details><summary>✅ Músicas aprovadas (<span id="qtdAprovadas">0</span>)</summary><label for="busca-aprovada">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-aprovada" data-categoria="aprovada" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-aprovada" aria-live="polite"></p><div id="listaAprovadas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
@@ -106,7 +110,7 @@ const destinos = {aguardando:'listaMusicas',aprovada:'listaAprovadas',rejeitada:
 const contadores = {aguardando:'qtdPendentes',aprovada:'qtdAprovadas',rejeitada:'qtdRejeitadas',lixeira:'qtdLixeira'};
 function mensagem(texto, tipo=''){el('mensagemPainel').textContent=texto;el('mensagemPainel').className=tipo;}
 async function adminAutorizado(){const {data,error}=await client.auth.getUser();return !error && data?.user?.id===ADMIN_ID;}
-async function atualizarAcesso(){const autorizado=await adminAutorizado();el('loginAdmin').hidden=autorizado;el('areaAdmin').hidden=!autorizado;if(autorizado){await listarMusicas();await listarEnviosArtistas();}}
+async function atualizarAcesso(){const autorizado=await adminAutorizado();el('loginAdmin').hidden=autorizado;el('areaAdmin').hidden=!autorizado;if(autorizado){await listarMusicas();await listarEnviosArtistas();await listarContratacoes();}}
 el('formLogin').addEventListener('submit',async event=>{
  event.preventDefault();const botao=el('btnEntrar');botao.disabled=true;el('mensagemLogin').textContent='Entrando...';
  try{const {data,error}=await client.auth.signInWithPassword({email:el('emailAdmin').value.trim(),password:el('senhaAdmin').value});if(error)throw error;if(data.user?.id!==ADMIN_ID){await client.auth.signOut();throw new Error('Acesso não autorizado.');}el('senhaAdmin').value='';el('mensagemLogin').textContent='';await atualizarAcesso();}catch(e){el('mensagemLogin').textContent='Erro no login: '+e.message;}finally{botao.disabled=false;}
@@ -323,6 +327,66 @@ async function listarEnviosArtistas(){
  }catch(e){el('mensagemEnvios').textContent='Erro ao carregar envios: '+e.message;}
  finally{carregandoEnvios=false;el('btnAtualizarEnvios').disabled=false;}
 }
+// Somente pedidos de teste: não altera pago_em, inicio_em, fim_em ou programação.
+let carregandoContratacoes=false;
+async function listarContratacoes(){
+ if(carregandoContratacoes)return;
+ carregandoContratacoes=true;
+ const botao=el('btnAtualizarContratacoes');botao.disabled=true;
+ const lista=el('listaContratacoes');lista.replaceChildren();
+ const aviso=el('mensagemContratacoes');aviso.className='muted';aviso.textContent='Consultando pedidos...';
+ try{
+  if(!(await adminAutorizado()))throw new Error('Acesso administrativo não autorizado.');
+  const {data:pedidos,error}=await client.from('contratacoes_divulgacao')
+   .select('id,envio_id,usuario_id,plano,valor,status,criado_em,execucoes_realizadas,pago_em,inicio_em,fim_em')
+   .order('criado_em',{ascending:false}).limit(200);
+  if(error)throw error;
+  const ids=[...new Set((pedidos||[]).map(p=>p.envio_id).filter(Boolean))];
+  const titulos=new Map();
+  if(ids.length){
+   const {data:envios,error:erroEnvios}=await client.from('envios_artistas').select('id,titulo,artista').in('id',ids);
+   if(erroEnvios)throw erroEnvios;
+   for(const e of envios||[])titulos.set(e.id,e);
+  }
+  for(const p of pedidos||[]){
+   const card=document.createElement('div');card.className='pedido-card';
+   const envio=titulos.get(p.envio_id);
+   adicionarTexto(card,'Música',envio?.titulo||'Envio '+String(p.envio_id||'não informado'));
+   adicionarTexto(card,'Artista',envio?.artista||'Não informado');
+   adicionarTexto(card,'Plano',String(p.plano||'Não informado'));
+   adicionarTexto(card,'Valor',Number(p.valor||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}));
+   adicionarTexto(card,'Situação',String(p.status||'Não informada'));
+   adicionarTexto(card,'Execuções realizadas',String(p.execucoes_realizadas??0));
+   adicionarTexto(card,'Pedido criado',p.criado_em?new Date(p.criado_em).toLocaleString('pt-BR'):'Não informado');
+   if(p.pago_em)adicionarTexto(card,'Pagamento registrado em',new Date(p.pago_em).toLocaleString('pt-BR'));
+   if(p.inicio_em)adicionarTexto(card,'Início',new Date(p.inicio_em).toLocaleString('pt-BR'));
+   if(p.fim_em)adicionarTexto(card,'Fim',new Date(p.fim_em).toLocaleString('pt-BR'));
+   if(p.status==='aguardando_pagamento'){
+    const confirmar=criarBotao('🧪 Confirmar pagamento de TESTE',async()=>{
+     if(operando||!(await adminAutorizado()))return;
+     if(!confirm('Confirmar somente o TESTE do pedido de “'+(envio?.titulo||'música')+'”? Não houve pagamento real e a música NÃO será liberada para tocar.'))return;
+     operando=true;confirmar.disabled=true;
+     try{
+      const {data,error}=await client.from('contratacoes_divulgacao')
+       .update({status:'confirmado_teste'})
+       .eq('id',p.id).eq('status','aguardando_pagamento').select('id,status');
+      if(error)throw error;
+      if(data?.length!==1)throw new Error('Atualização não autorizada ou pedido já alterado. Confira a política RLS de UPDATE do administrador.');
+      alert('Pagamento de TESTE confirmado. Nenhum Pix foi recebido e a música não foi ativada.');
+     }catch(e){alert('Não foi possível confirmar o teste: '+e.message);}
+     finally{operando=false;await listarContratacoes();}
+    });
+    card.appendChild(confirmar);
+   }
+   lista.appendChild(card);
+  }
+  if(!pedidos?.length){const vazio=document.createElement('p');vazio.className='muted';vazio.textContent='Nenhuma contratação registrada.';lista.appendChild(vazio);}
+  aviso.className='ok';aviso.textContent='Pedidos encontrados: '+(pedidos?.length||0)+'. Confirmações nesta seção são apenas testes.';
+ }catch(e){aviso.className='erro';aviso.textContent='Erro ao carregar contratações: '+e.message;}
+ finally{carregandoContratacoes=false;botao.disabled=false;}
+}
+el('btnAtualizarContratacoes').addEventListener('click',listarContratacoes);
+
 el('btnAtualizarEnvios').addEventListener('click',listarEnviosArtistas);
 
 el('btnListarMusicas').addEventListener('click',listarMusicas);
