@@ -13,6 +13,13 @@
 .lista-rolagem audio{max-width:100%;height:36px}
 .busca-categoria{background:#f9f9fb;color:#161616;margin:6px 0 10px}.lista-rolagem{border:1px solid #343947;border-radius:10px;padding:6px 12px;min-height:55px}.contador-busca{font-size:12px;color:#c7c7cf;margin:0 0 8px}
 .musica-cabecalho{display:block;width:100%;text-align:left;background:#222d46;color:#fff;border:1px solid #44516a;border-radius:9px;padding:11px 12px;margin:0;font-size:14px;line-height:1.35}.musica-cabecalho:hover{background:#334363}.musica-conteudo{padding:9px 4px 4px}.lista-rolagem::-webkit-scrollbar{width:11px}.lista-rolagem::-webkit-scrollbar-thumb{background:#e5a22d;border-radius:12px}.lista-rolagem::-webkit-scrollbar-track{background:#182032;border-radius:12px}.busca-categoria{border:2px solid #e5a22d}.categoria-ajuda{font-size:12px;color:#bfc9df;margin:4px 0 8px}@media(max-width:600px){main{padding:10px}.card{padding:16px}.lista-rolagem{height:240px}.acoes button{padding:10px 13px}}
+/* Seletor de múltiplos estilos */
+.estilos-painel{margin:12px 0;padding:12px;border:1px solid #53627b;border-radius:10px;background:#1b2438}
+.estilos-painel strong{display:block;margin-bottom:9px;color:#ffcf73}
+.estilos-grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:7px}
+.estilos-grade label{display:flex;align-items:center;gap:7px;background:#26334c;border-radius:7px;padding:9px;font-size:13px;cursor:pointer}
+.estilos-grade input{width:auto;margin:0;accent-color:#ffbd35}
+.estilos-painel button{margin-top:12px}.estilos-resumo{font-size:12px;color:#a8f0be;margin:6px 0}
 </style>
 </head>
 <body>
@@ -24,7 +31,7 @@
 <main id="areaAdmin" hidden>
 <section class="card"><h2>🎵 Adicionar música</h2>
 <form id="formAdicionar"><label for="nomeMusica">Nome da música</label><input id="nomeMusica" type="text" placeholder="Ex.: Meu Girassol" required maxlength="200"><label for="nomeArtista">Nome do artista</label><input id="nomeArtista" type="text" placeholder="Ex.: Anderson Picoloto" required maxlength="200"><label for="arquivoMp3">Arquivo MP3</label><input id="arquivoMp3" type="file" accept="audio/mpeg,.mp3" required><label for="arquivoCapa">Capa da música</label><input id="arquivoCapa" type="file" accept="image/png,image/jpeg,image/webp" required><button type="submit" id="btnAdicionarMusica">Adicionar música</button></form><p><small>As músicas novas entram em “Aguardando aprovação”.</small></p></section>
-<section class="card"><h2>🎵 Biblioteca de músicas</h2><p class="ok"><strong>🔎 Pesquisa e rolagem por categoria — versão atualizada</strong></p><button type="button" id="btnListarMusicas">🔄 Atualizar lista de músicas</button><p id="mensagemPainel" role="status"></p>
+<section class="card"><h2>🎵 Biblioteca de músicas</h2><p class="ok"><strong>🔎 Pesquisa, rolagem e múltiplos estilos — versão categorias</strong></p><button type="button" id="btnListarMusicas">🔄 Atualizar lista de músicas</button><p id="mensagemPainel" role="status"></p>
 <details open><summary>🕒 Aguardando aprovação (<span id="qtdPendentes">0</span>)</summary><label for="busca-aguardando">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-aguardando" data-categoria="aguardando" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-aguardando" aria-live="polite"></p><div id="listaMusicas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
 <details><summary>✅ Músicas aprovadas (<span id="qtdAprovadas">0</span>)</summary><label for="busca-aprovada">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-aprovada" data-categoria="aprovada" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-aprovada" aria-live="polite"></p><div id="listaAprovadas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
 <details><summary>❌ Músicas rejeitadas (<span id="qtdRejeitadas">0</span>)</summary><label for="busca-rejeitada">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-rejeitada" data-categoria="rejeitada" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-rejeitada" aria-live="polite"></p><div id="listaRejeitadas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
@@ -57,6 +64,39 @@ function aplicarBusca(){
   }
   el('resultado-'+categoria).textContent=termo ? visiveis+' resultado(s) encontrado(s)' : visiveis+' música(s) na lista — role para procurar ou use a lupa.';
  }
+}
+const ESTILOS = [
+ ['sertanejo','🤠 Sertanejo'],['romantico','❤️ Romântico'],['pop','🎧 Pop'],
+ ['gospel','✨ Gospel'],['rock','🎸 Rock'],['funk','🎲 Funk'],
+ ['mpb','🎼 MPB'],['internacional','🌐 Internacional']
+];
+function montarSeletorEstilos(m){
+ const painel=document.createElement('div');painel.className='estilos-painel';
+ const titulo=document.createElement('strong');titulo.textContent='📁 Categorias musicais (marque uma ou mais)';painel.appendChild(titulo);
+ const grade=document.createElement('div');grade.className='estilos-grade';
+ const atuais=Array.isArray(m.estilos)?m.estilos:[];
+ for(const [valor,rotulo] of ESTILOS){
+  const label=document.createElement('label');const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.value=valor;checkbox.checked=atuais.includes(valor);
+  label.append(checkbox,document.createTextNode(rotulo));grade.appendChild(label);
+ }
+ painel.appendChild(grade);
+ const aviso=document.createElement('p');aviso.className='estilos-resumo';aviso.textContent=atuais.length?'Categorias salvas: '+atuais.map(v=>ESTILOS.find(e=>e[0]===v)?.[1]||v).join(', '):'Nenhuma categoria selecionada.';painel.appendChild(aviso);
+ const botao=criarBotao('💾 Salvar categorias',async()=>{
+  if(operando)return;
+  const selecionados=[...grade.querySelectorAll('input:checked')].map(c=>c.value);
+  if(!(await adminAutorizado())){alert('Acesso não autorizado.');return;}
+  operando=true;botao.disabled=true;aviso.textContent='Salvando categorias...';
+  try{
+   const {data,error}=await client.from('musicas').update({estilos:selecionados}).eq('id',m.id).select('id,estilos');
+   if(error)throw error;
+   if(data?.length!==1)throw new Error('O Supabase não confirmou a alteração. Verifique as políticas RLS.');
+   m.estilos=selecionados;
+   aviso.textContent=selecionados.length?'Salvo! Categorias: '+selecionados.map(v=>ESTILOS.find(e=>e[0]===v)?.[1]||v).join(', '):'Salvo! Nenhuma categoria selecionada.';
+   mensagem('Categorias de “'+m.titulo+'” salvas com sucesso!','ok');
+  }catch(e){aviso.textContent='Erro ao salvar: '+e.message;mensagem('Erro nas categorias: '+e.message,'erro');}
+  finally{operando=false;botao.disabled=false;}
+ });
+ painel.appendChild(botao);return painel;
 }
 const destinos = {aguardando:'listaMusicas',aprovada:'listaAprovadas',rejeitada:'listaRejeitadas',lixeira:'listaLixeira'};
 const contadores = {aguardando:'qtdPendentes',aprovada:'qtdAprovadas',rejeitada:'qtdRejeitadas',lixeira:'qtdLixeira'};
@@ -98,6 +138,7 @@ function montarMusica(m){
  item.appendChild(cabecalho);
  if(m.arquivo_url){const player=document.createElement('audio');player.controls=true;player.preload='none';player.src=m.arquivo_url;conteudo.appendChild(player);}else{const aviso=document.createElement('p');aviso.className='aviso';aviso.textContent='Cadastro sem endereço do MP3.';conteudo.appendChild(aviso);}
  const acoes=document.createElement('div');acoes.className='acoes';const e=estado(m);
+ if(e!=='lixeira')conteudo.appendChild(montarSeletorEstilos(m));
  if(e==='lixeira'){acoes.appendChild(criarBotao('↩️ Restaurar',()=>mudarMusica(m,'restaurar')));acoes.appendChild(criarBotao('🗑️ Excluir definitivamente',()=>excluirDefinitivamente(m)));}
  else{
   if(e!=='aprovada')acoes.appendChild(criarBotao('✅ Aprovar',()=>mudarMusica(m,'aprovar')));
@@ -113,7 +154,7 @@ async function listarMusicas(){
   if(!(await adminAutorizado()))throw new Error('Acesso não autorizado.');
   // Fonte única: tabela de cadastros. Arquivos soltos no Storage não viram músicas duplicadas.
   const registros=[];let inicio=0;const lote=500;
-  while(true){const {data,error}=await client.from('musicas').select('id,titulo,artista,arquivo_url,capa_url,status,aprovada,excluida_em').order('id',{ascending:true}).range(inicio,inicio+lote-1);if(error)throw error;registros.push(...(data||[]));if(!data||data.length<lote)break;inicio+=lote;if(inicio>=10000)throw new Error('Limite de registros atingido.');}
+  while(true){const {data,error}=await client.from('musicas').select('id,titulo,artista,arquivo_url,capa_url,status,aprovada,excluida_em,estilos').order('id',{ascending:true}).range(inicio,inicio+lote-1);if(error)throw error;registros.push(...(data||[]));if(!data||data.length<lote)break;inicio+=lote;if(inicio>=10000)throw new Error('Limite de registros atingido.');}
   itensLixeira=registros.filter(m=>estado(m)==='lixeira');
   el('btnEsvaziarLixeira').disabled=itensLixeira.length===0;
   for(const id of Object.values(destinos))el(id).replaceChildren();
