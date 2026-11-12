@@ -24,6 +24,7 @@ button:hover,.btn:hover{filter:brightness(1.12)}
 .genre{background:#20263a;border:1px solid #39415a;border-radius:12px;text-align:center;padding:20px;font-weight:bold;color:white;cursor:pointer}.genre:hover,.genre[aria-pressed="true"]{background:#354568;border-color:#ffbd35}.faixa{display:block;width:100%;margin:8px 0;text-align:left;background:#20263a;color:white;border:1px solid #39415a;border-radius:12px}.faixa:hover{border-color:#ffbd35}#listaGenero{margin-top:18px}#listaGenero[hidden]{display:none}.pasta-musicas{background:#0c1222;border:1px solid #39415a;border-radius:14px;padding:15px;max-width:680px}.pasta-topo{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.pasta-topo button{padding:9px 15px}.busca-musicas{width:100%;margin:12px 0;padding:12px;border-radius:10px;border:1px solid #52607b;background:#171f33;color:#fff;font-size:16px}.rolagem-musicas{max-height:320px;overflow-y:auto;overscroll-behavior:contain;border:1px solid #303b55;border-radius:10px}.faixa{padding:10px 12px;margin:0!important;border-radius:0!important;border:0!important;border-bottom:1px solid #39415a!important;font-size:14px;line-height:1.4}.faixa strong,.faixa small{display:block}.faixa small{color:#bbc4d6;font-weight:normal}.faixa.ativa{background:#354568;border-left:3px solid #ffbd35!important}.contagem-musicas{font-size:13px;color:#bbc4d6;margin:4px 0 10px}.pasta-vazia{padding:15px;color:#d5d9e5}
 #aviso{color:#ffd88c}
 footer{text-align:center;background:#050711;padding:35px;color:#aaa}
+.artista-area{max-width:560px;background:#0c1222;border:1px solid #39415a;border-radius:14px;padding:18px;margin-top:18px}.artista-area label{display:block;margin:14px 0 6px}.artista-area input{width:100%;padding:13px;border:1px solid #52607b;border-radius:10px;background:#171f33;color:white;font-size:16px}.artista-area form>button{margin-top:18px}.artista-abas{display:flex;gap:10px}.artista-abas button{flex:1;background:#20263a;color:#fff}.artista-abas button.aba-ativa{background:linear-gradient(90deg,#e27b0b,#ffca46);color:#15100a}.aviso-artista{font-size:13px;color:#bbc4d6}#mensagemArtista{color:#ffda85;white-space:pre-line}#areaLogada[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -72,7 +73,19 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 <section class="card" id="divulgar">
 <h2>📣 Divulgue sua música aqui!</h2>
 <p>Você é artista independente? Sua música merece ser ouvida!</p>
-<p>Em breve teremos informações sobre os planos de divulgação, envio de músicas e participação na programação.</p>
+<p>Cadastre-se gratuitamente para acompanhar suas músicas e solicitar uma avaliação. Aceitamos músicas tradicionais e criadas com inteligência artificial, desde que você tenha as autorizações necessárias.</p>
+<div class="artista-area">
+  <div class="artista-abas"><button type="button" id="abaCadastro" class="aba-ativa">Criar conta</button><button type="button" id="abaLogin">Entrar</button></div>
+  <form id="formArtista">
+    <div id="camposCadastro"><label for="nomeArtista">Nome artístico</label><input id="nomeArtista" autocomplete="nickname" maxlength="100" placeholder="Seu nome artístico"></div>
+    <label for="emailArtista">E-mail</label><input id="emailArtista" type="email" autocomplete="email" required placeholder="seuemail@exemplo.com">
+    <label for="senhaArtista">Senha (mínimo de 8 caracteres)</label><input id="senhaArtista" type="password" autocomplete="new-password" minlength="8" required>
+    <button id="enviarArtista" type="submit">Criar conta gratuitamente</button>
+  </form>
+  <div id="areaLogada" hidden><p id="boasVindasArtista"></p><p>Seu acesso está ativo. O envio de músicas e o acompanhamento das avaliações serão ligados ao painel na próxima etapa.</p><button type="button" id="sairArtista">Sair da conta</button></div>
+  <p id="mensagemArtista" role="status" aria-live="polite"></p>
+  <p class="aviso-artista">O cadastro é gratuito. A música só poderá ser contratada para divulgação depois da avaliação e aprovação.</p>
+</div>
 </section>
 
 <section class="card" id="estilos">
@@ -247,6 +260,62 @@ document.getElementById('btnSairRadio').addEventListener('click',()=>{
 document.getElementById('btnContinuarOuvindo').addEventListener('click',()=>{
   document.getElementById('avisoContinuarOuvindo').style.display='flex';
 });
+// Cadastro de artistas via Supabase Auth (sem gravar senhas no site).
+const authBase = supabaseUrl + '/auth/v1';
+const formArtista = document.getElementById('formArtista');
+const mensagemArtista = document.getElementById('mensagemArtista');
+const camposCadastro = document.getElementById('camposCadastro');
+const abaCadastro = document.getElementById('abaCadastro');
+const abaLogin = document.getElementById('abaLogin');
+let modoCadastro = true;
+let sessaoArtista = null;
+function trocarAbaArtista(cadastro){
+  modoCadastro=cadastro;camposCadastro.hidden=!cadastro;
+  abaCadastro.classList.toggle('aba-ativa',cadastro);abaLogin.classList.toggle('aba-ativa',!cadastro);
+  document.getElementById('enviarArtista').textContent=cadastro?'Criar conta gratuitamente':'Entrar na minha conta';
+  document.getElementById('senhaArtista').autocomplete=cadastro?'new-password':'current-password';
+  mensagemArtista.textContent='';
+}
+abaCadastro.addEventListener('click',()=>trocarAbaArtista(true));
+abaLogin.addEventListener('click',()=>trocarAbaArtista(false));
+function exibirSessaoArtista(sessao){
+  sessaoArtista=sessao;
+  const logado=!!sessao?.access_token;
+  document.getElementById('areaLogada').hidden=!logado;
+  document.getElementById('formArtista').hidden=logado;
+  document.querySelector('.artista-abas').hidden=logado;
+  document.getElementById('boasVindasArtista').textContent=logado?'Conta conectada: '+(sessao.user?.email||'Artista'):'';
+}
+async function requisicaoAuth(caminho,corpo,token){
+  const r=await fetch(authBase+caminho,{method:'POST',headers:{apikey:supabaseKey,'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify(corpo)});
+  const dados=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(dados.msg||dados.error_description||dados.message||dados.error||'Não foi possível concluir. Confira os dados e tente novamente.');
+  return dados;
+}
+formArtista.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const botao=document.getElementById('enviarArtista');botao.disabled=true;mensagemArtista.textContent='Aguarde...';
+  const email=document.getElementById('emailArtista').value.trim();
+  const password=document.getElementById('senhaArtista').value;
+  try{
+    if(modoCadastro){
+      const nome=document.getElementById('nomeArtista').value.trim();
+      if(!nome)throw new Error('Informe seu nome artístico.');
+      const dados=await requisicaoAuth('/signup',{email,password,data:{nome_artistico:nome}});
+      if(dados.access_token){exibirSessaoArtista(dados);mensagemArtista.textContent='Conta criada e conectada!';}
+      else mensagemArtista.textContent='Cadastro solicitado. Verifique seu e-mail para confirmar a conta, caso a confirmação esteja ativada no Supabase. Depois volte e clique em Entrar.';
+    }else{
+      const dados=await requisicaoAuth('/token?grant_type=password',{email,password});
+      exibirSessaoArtista(dados);mensagemArtista.textContent='Login realizado.';
+    }
+  }catch(erro){mensagemArtista.textContent='Não foi possível continuar: '+erro.message;}
+  finally{botao.disabled=false;}
+});
+document.getElementById('sairArtista').addEventListener('click',async()=>{
+  try{if(sessaoArtista?.access_token)await requisicaoAuth('/logout',{},sessaoArtista.access_token);}catch(e){console.warn('Falha ao encerrar sessão no servidor',e);}
+  exibirSessaoArtista(null);formArtista.reset();trocarAbaArtista(false);mensagemArtista.textContent='Você saiu da conta.';
+});
+
 carregarMusicas();
 setInterval(carregarMusicas,60000);
 </script>
