@@ -84,10 +84,16 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 <button class="genre" type="button" data-genero="Gospel" aria-pressed="false">✨ Gospel</button>
 <button class="genre" type="button" data-genero="Forró" aria-pressed="false">🪗 Forró</button>
 <button class="genre" type="button" data-genero="Pagode" aria-pressed="false">🥁 Pagode</button>
-<button class="genre" type="button" data-genero="Rock" aria-pressed="false">🎸 Rock</button>
+<button class="genre" type="button" data-genero="Rock Nacional" aria-pressed="false">🎸 Rock Nacional</button>
+<button class="genre" type="button" data-genero="Rock Internacional" aria-pressed="false">🌍 Rock Internacional</button>
 <button class="genre" type="button" data-genero="Funk" aria-pressed="false">🎛️ Funk</button>
 <button class="genre" type="button" data-genero="MPB" aria-pressed="false">🎼 MPB</button>
 <button class="genre" type="button" data-genero="Internacional" aria-pressed="false">🌎 Internacional</button>
+<button class="genre" type="button" data-genero="Reggae" aria-pressed="false">🇯🇲 Reggae</button>
+<button class="genre" type="button" data-genero="Samba" aria-pressed="false">🎶 Samba</button>
+<button class="genre" type="button" data-genero="Música Gaúcha" aria-pressed="false">🧉 Música Gaúcha</button>
+<button class="genre" type="button" data-genero="Bandinhas Gaúchas" aria-pressed="false">🪗 Bandinhas Gaúchas</button>
+<button class="genre" type="button" data-genero="Música Eletrônica" aria-pressed="false">🎹 Música Eletrônica</button>
 </div>
 <div id="listaGenero" hidden class="pasta-musicas"><div class="pasta-topo"><h3 id="nomeGenero" style="margin:0"></h3><button type="button" id="fecharGenero">← Voltar aos estilos</button></div><input id="buscaGenero" class="busca-musicas" type="search" placeholder="🔎 Buscar música ou artista..." aria-label="Buscar música ou artista"><p id="contagemGenero" class="contagem-musicas" aria-live="polite"></p><div id="faixasGenero" class="rolagem-musicas"></div></div>
 </section>
@@ -166,7 +172,7 @@ async function carregarMusicas() {
       if (!resposta.ok) throw new Error('Falha ao consultar músicas (HTTP '+resposta.status+').');
       const dados = await resposta.json();
       musicas = dados.filter(m=>m.arquivo_url && !['rejeitada','rejeitado','aguardando','pendente'].includes(normalizar(m.status)))
-        .map(m=>({id:m.id,titulo:m.titulo||'Sem título',artista:m.artista||'Artista não informado',arquivo:m.arquivo_url,capa:m.capa_url,genero:String(m.genero||m.estilo||m.estilo_musical||'').trim()}));
+        .map(m=>({id:m.id,titulo:m.titulo||'Sem título',artista:m.artista||'Artista não informado',arquivo:m.arquivo_url,capa:m.capa_url,generos:Array.isArray(m.estilos) && m.estilos.length ? m.estilos : [m.genero||m.estilo||m.estilo_musical||''].filter(Boolean)}));
       if (tocandoId !== null && !musicas.some(m=>String(m.id)===String(tocandoId))) {
         radio.pause();radio.removeAttribute('src');radio.load();tocandoId=null;modoRadio=false;informarRadio(null);
       }
@@ -187,7 +193,7 @@ function mostrarGenero(genero) {
 function renderizarGenero() {
   if (!generoAtual) return;
   const termo=normalizar(buscaGenero.value);
-  const filtradas=musicas.filter(m=>normalizar(m.genero)===normalizar(generoAtual) && normalizar(m.titulo+' '+m.artista).includes(termo))
+  const filtradas=musicas.filter(m=>m.generos.some(g=>normalizar(g)===normalizar(generoAtual)) && normalizar(m.titulo+' '+m.artista).includes(termo))
     .sort((a,b)=>a.titulo.localeCompare(b.titulo,'pt-BR',{sensitivity:'base'}));
   contagemGenero.textContent=filtradas.length+' música(s) encontrada(s)';
   faixasGenero.replaceChildren();
