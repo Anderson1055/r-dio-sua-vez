@@ -36,6 +36,11 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 /* Garante que os formulários permaneçam ocultos até clicar no botão. */
 #painelArtista[hidden], #acoesArtista[hidden] {display:none!important}
 #painelArtista:not([hidden]) {display:block}
+
+/* Painel de envio e análise */
+#painelEnvios[hidden],#painelAdmin[hidden]{display:none!important}
+.envio-form label{display:block;margin:12px 0 5px}.envio-form input,.envio-form select,.envio-form textarea{width:100%;padding:12px;background:#171f33;border:1px solid #52607b;color:#fff;border-radius:9px;font:inherit}
+.envio-form input[type=checkbox]{width:auto}.envio-item{border:1px solid #39415a;border-radius:12px;padding:13px;margin:12px 0;background:#10182b;overflow-wrap:anywhere}.envio-item p{margin:6px 0}.envio-item button{margin:5px 6px 5px 0;padding:10px 15px}.envio-item audio{width:100%;margin:10px 0}.status-envio{font-weight:bold;color:#ffcf69}.envio-ajuda{font-size:13px;color:#cbd5e1}
 </style>
 </head>
 <body>
@@ -121,6 +126,31 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
     <p><button type="button" class="termos-link" id="voltarLogin">← Voltar ao login</button></p>
   </div>
   <div id="areaLogada" hidden><p id="boasVindasArtista"></p><p>Seu acesso está ativo. O envio de músicas e o acompanhamento das avaliações serão ligados ao painel na próxima etapa.</p><button type="button" id="sairArtista">Sair da conta</button></div>
+
+  <div id="painelEnvios" hidden>
+    <h3>🎵 Enviar música para avaliação gratuita</h3>
+    <p class="envio-ajuda">Envie uma música por vez. O envio não garante aprovação. Nenhum pagamento é solicitado nesta etapa.</p>
+    <form id="formEnvioMusica" class="envio-form">
+      <label for="tituloEnvio">Título da música</label><input id="tituloEnvio" maxlength="150" required>
+      <label for="artistaEnvio">Nome do artista ou banda</label><input id="artistaEnvio" maxlength="120" required>
+      <label for="generoEnvio">Estilo musical</label>
+      <select id="generoEnvio" required><option value="">Selecione</option><option>Sertanejo</option><option>Romântico</option><option>Pop</option><option>Gospel</option><option>Forró</option><option>Pagode</option><option>Rock Nacional</option><option>Rock Internacional</option><option>Funk</option><option>MPB</option><option>Internacional</option><option>Reggae</option><option>Samba</option><option>Música Gaúcha</option><option>Bandinhas Gaúchas</option><option>Música Eletrônica</option><option>Outro</option></select>
+      <label for="arquivoEnvio">Arquivo de áudio (MP3, WAV ou M4A; até 25 MB)</label><input id="arquivoEnvio" type="file" accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4" required>
+      <label class="check-artista"><input id="direitosEnvio" type="checkbox" required> Declaro possuir as autorizações necessárias para enviar esta gravação para avaliação.</label>
+      <button type="submit" id="btnEnviarMusica">Enviar música gratuitamente</button>
+    </form>
+    <p id="mensagemEnvio" role="status" aria-live="polite"></p>
+    <h3>📋 Minhas músicas enviadas</h3>
+    <button type="button" id="atualizarEnvios">Atualizar situação</button>
+    <div id="listaMeusEnvios"></div>
+  </div>
+  <div id="painelAdmin" hidden>
+    <h3>🛡️ Administração — músicas para análise</h3>
+    <p class="envio-ajuda">Aprovar aqui apenas libera a etapa de contratação. A música não entra automaticamente na rádio.</p>
+    <button type="button" id="atualizarAdmin">Atualizar solicitações</button>
+    <p id="mensagemAdmin" role="status"></p>
+    <div id="listaAdmin"></div>
+  </div>
   <p id="mensagemArtista" role="status" aria-live="polite"></p>
   <p class="aviso-artista"><button type="button" class="termos-link" id="abrirTermosRodape">📄 Ler condições de divulgação musical</button></p><p class="aviso-artista">O cadastro é gratuito. A música só poderá ser contratada para divulgação depois da avaliação e aprovação.</p>
 </div>
@@ -443,12 +473,16 @@ document.getElementById('formNovaSenha').addEventListener('submit',async e=>{
 
 function exibirSessaoArtista(sessao){
   sessaoArtista=sessao;
+  if(sessao?.access_token)sessionStorage.setItem("radioSessaoArtista",JSON.stringify(sessao));else sessionStorage.removeItem("radioSessaoArtista");
   const logado=!!sessao?.access_token;
   if(logado){painelArtista.hidden=false;acoesArtista.hidden=true;}
   document.getElementById('areaLogada').hidden=!logado;
   document.getElementById('formArtista').hidden=logado;
   document.querySelector('.artista-abas').hidden=logado;
   document.getElementById('boasVindasArtista').textContent=logado?'Conta conectada: '+(sessao.user?.email||'Artista'):'';
+  document.getElementById('painelEnvios').hidden=!logado;
+  document.getElementById('painelAdmin').hidden=true;
+  if(logado){carregarMeusEnvios();verificarAdministrador();}
 }
 async function requisicaoAuth(caminho,corpo,token){
   const r=await fetch(authBase+caminho,{method:'POST',headers:{apikey:supabaseKey,'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify(corpo)});
@@ -503,6 +537,99 @@ document.getElementById('sairArtista').addEventListener('click',async()=>{
   exibirSessaoArtista(null);formArtista.reset();trocarAbaArtista(false);mensagemArtista.textContent='Você saiu da conta.';
 });
 
+
+// Envio de arquivos e análise. As regras de acesso são aplicadas no Supabase (SQL separado).
+const tabelaEnvios = supabaseUrl + '/rest/v1/envios_artistas';
+const bucketEnvios = supabaseUrl + '/storage/v1/object';
+const msgEnvio = document.getElementById('mensagemEnvio');
+const msgAdmin = document.getElementById('mensagemAdmin');
+const escaparHtml = v => String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function cabecalhosArtista(extra={}){return {apikey:supabaseKey,Authorization:'Bearer '+sessaoArtista.access_token,...extra};}
+async function apiArtista(url,opcoes={}){
+  const r=await fetch(url,{...opcoes,headers:{...cabecalhosArtista(),...(opcoes.headers||{})}});
+  if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.message||d.error||'Erro HTTP '+r.status);}
+  return r.status===204?null:r.json();
+}
+async function urlAudioPrivado(caminho){
+  const d=await apiArtista(bucketEnvios+'/sign/envios-musicais/'+caminho,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expiresIn:600})});
+  return supabaseUrl+'/storage/v1'+d.signedURL;
+}
+async function carregarMeusEnvios(){
+  if(!sessaoArtista?.access_token)return;
+  const lista=document.getElementById('listaMeusEnvios');lista.textContent='Carregando...';
+  try{
+    const dados=await apiArtista(tabelaEnvios+'?select=id,titulo,artista,genero,status,criado_em,observacao_admin&order=criado_em.desc&limit=100');
+    lista.replaceChildren();
+    if(!dados.length){lista.textContent='Nenhuma música enviada ainda.';return;}
+    dados.forEach(m=>{
+      const div=document.createElement('div');div.className='envio-item';
+      div.innerHTML='<strong>'+escaparHtml(m.titulo)+'</strong><p>'+escaparHtml(m.artista)+' — '+escaparHtml(m.genero)+'</p><p class="status-envio">Situação: '+escaparHtml(m.status)+'</p>'+(m.observacao_admin?'<p>Observação: '+escaparHtml(m.observacao_admin)+'</p>':'')+'<p class="envio-ajuda">'+new Date(m.criado_em).toLocaleString('pt-BR')+'</p>';
+      lista.append(div);
+    });
+  }catch(e){lista.textContent='Não foi possível consultar: '+e.message;}
+}
+async function carregarAdmin(){
+  if(!sessaoArtista?.access_token)return;
+  const lista=document.getElementById('listaAdmin');lista.textContent='Carregando...';
+  try{
+    const dados=await apiArtista(tabelaEnvios+'?select=id,titulo,artista,genero,status,criado_em,arquivo_caminho,observacao_admin&order=criado_em.desc&limit=100');
+    lista.replaceChildren();
+    if(!dados.length){lista.textContent='Nenhum envio encontrado.';return;}
+    dados.forEach(m=>{
+      const div=document.createElement('div');div.className='envio-item';
+      div.innerHTML='<strong>'+escaparHtml(m.titulo)+'</strong><p>'+escaparHtml(m.artista)+' — '+escaparHtml(m.genero)+'</p><p class="status-envio">'+escaparHtml(m.status)+'</p>';
+      const ouvir=document.createElement('button');ouvir.type='button';ouvir.textContent='▶ Ouvir para avaliar';
+      ouvir.addEventListener('click',async()=>{try{const url=await urlAudioPrivado(m.arquivo_caminho);let a=div.querySelector('audio');if(!a){a=document.createElement('audio');a.controls=true;div.append(a);}a.src=url;}catch(e){msgAdmin.textContent=e.message;}});
+      div.append(ouvir);
+      if(m.status==='pendente'){
+        for(const [rotulo,estado] of [['Aprovar','aprovada'],['Rejeitar','rejeitada']]){
+          const b=document.createElement('button');b.type='button';b.textContent=rotulo;
+          b.addEventListener('click',async()=>{
+            const observacao=estado==='rejeitada'?prompt('Motivo da rejeição (opcional):') : null;
+            if(estado==='rejeitada' && observacao===null)return;
+            if(!confirm('Confirma '+rotulo.toLowerCase()+' esta música?'))return;
+            b.disabled=true;
+            try{await apiArtista(tabelaEnvios+'?id=eq.'+encodeURIComponent(m.id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:estado,observacao_admin:observacao||null})});msgAdmin.textContent='Situação atualizada. Nenhum pagamento foi cobrado e a música não entrou na programação.';await carregarAdmin();await carregarMeusEnvios();}
+            catch(e){msgAdmin.textContent='Erro: '+e.message;b.disabled=false;}
+          });div.append(b);
+        }
+      }
+      lista.append(div);
+    });
+  }catch(e){lista.textContent='Não foi possível consultar: '+e.message;}
+}
+async function verificarAdministrador(){
+  const painel=document.getElementById('painelAdmin');painel.hidden=true;
+  if(!sessaoArtista?.access_token)return;
+  try{
+    const dados=await apiArtista(supabaseUrl+'/rest/v1/admin_usuarios?select=user_id&limit=1');
+    painel.hidden=!dados.length;
+    if(dados.length)await carregarAdmin();
+  }catch(e){console.warn('Permissão administrativa indisponível:',e.message);}
+}
+document.getElementById('formEnvioMusica').addEventListener('submit',async e=>{
+  e.preventDefault();const b=document.getElementById('btnEnviarMusica');b.disabled=true;msgEnvio.textContent='Enviando...';
+  let caminho=null;
+  try{
+    if(!sessaoArtista?.access_token)throw new Error('Entre na sua conta novamente.');
+    const arquivo=document.getElementById('arquivoEnvio').files[0];
+    if(!arquivo||arquivo.size>25*1024*1024||arquivo.size===0)throw new Error('Escolha um arquivo de até 25 MB.');
+    const extensao=arquivo.name.split('.').pop().toLowerCase();
+    if(!['mp3','wav','m4a'].includes(extensao))throw new Error('Formato permitido: MP3, WAV ou M4A.');
+    const userId=sessaoArtista.user.id;
+    caminho=userId+'/'+crypto.randomUUID()+'.'+extensao;
+    const r=await fetch(bucketEnvios+'/envios-musicais/'+caminho,{method:'POST',headers:cabecalhosArtista({'Content-Type':arquivo.type||'application/octet-stream','x-upsert':'false'}),body:arquivo});
+    if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.message||d.error||'Falha no envio do arquivo');}
+    await apiArtista(tabelaEnvios,{method:'POST',headers:{'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({usuario_id:userId,titulo:document.getElementById('tituloEnvio').value.trim(),artista:document.getElementById('artistaEnvio').value.trim(),genero:document.getElementById('generoEnvio').value,arquivo_caminho:caminho})});
+    document.getElementById('formEnvioMusica').reset();msgEnvio.textContent='Música enviada gratuitamente! Situação: pendente de análise.';
+    await carregarMeusEnvios();
+  }catch(err){msgEnvio.textContent='Não foi possível enviar: '+err.message+' (se o arquivo foi enviado, pode ser necessário limpar um arquivo órfão no Storage).';}
+  finally{b.disabled=false;}
+});
+document.getElementById('atualizarEnvios').addEventListener('click',carregarMeusEnvios);
+document.getElementById('atualizarAdmin').addEventListener('click',carregarAdmin);
+
+try{const guardada=JSON.parse(sessionStorage.getItem('radioSessaoArtista')||'null');if(guardada?.access_token && guardada?.expires_at && guardada.expires_at*1000>Date.now())exibirSessaoArtista(guardada);}catch(e){sessionStorage.removeItem('radioSessaoArtista');}
 carregarMusicas();
 setInterval(carregarMusicas,60000);
 </script>
