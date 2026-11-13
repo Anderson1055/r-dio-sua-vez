@@ -143,6 +143,7 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
       <label for="generoEnvio">Estilo musical</label>
       <select id="generoEnvio" required><option value="">Selecione</option><option>Sertanejo</option><option>Romântico</option><option>Pop</option><option>Gospel</option><option>Forró</option><option>Pagode</option><option>Rock Nacional</option><option>Rock Internacional</option><option>Funk</option><option>MPB</option><option>Internacional</option><option>Reggae</option><option>Samba</option><option>Música Gaúcha</option><option>Bandinhas Gaúchas</option><option>Música Eletrônica</option><option>Outro</option></select>
       <label for="arquivoEnvio">Arquivo de áudio (MP3, WAV ou M4A; até 25 MB)</label><input id="arquivoEnvio" type="file" accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4" required>
+      <p id="duracaoArquivoEnvio" class="envio-ajuda" role="status" aria-live="polite">Duração: selecione um arquivo de áudio.</p>
       <label for="capaEnvio">Capa da música (opcional no envio; JPG, PNG ou WebP, até 5 MB)</label>
       <input id="capaEnvio" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
       <label class="check-artista"><input id="semCapaEnvio" type="checkbox"> Ainda não tenho capa (a administração poderá adicionar depois)</label>
@@ -721,6 +722,59 @@ async function verificarAdministrador(){
     if(dados.length)await carregarAdmin();
   }catch(e){console.warn('Permissão administrativa indisponível:',e.message);}
 }
+// Lê os metadados de áudio no navegador antes de enviar ao Storage.
+const inputArquivoEnvio = document.getElementById('arquivoEnvio');
+const textoDuracaoArquivo = document.getElementById('duracaoArquivoEnvio');
+let duracaoArquivoAtual = null;
+let arquivoDuracaoAtual = null;
+function formatarDuracaoAudio(segundos){
+  const total = Math.ceil(segundos);
+  return Math.floor(total/60)+'min '+String(total%60).padStart(2,'0')+'s';
+}
+function lerDuracaoAudio(arquivo){
+  return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(arquivo);
+    const audio=document.createElement('audio');
+    let concluido=false;
+    const finalizar=(erro,valor)=>{
+      if(concluido)return;
+      concluido=true;
+      clearTimeout(limite);
+      audio.removeAttribute('src');audio.load();
+      URL.revokeObjectURL(url);
+      if(erro)reject(erro);else resolve(valor);
+    };
+    const limite=setTimeout(()=>finalizar(new Error('Tempo esgotado ao ler a duração.')),15000);
+    audio.preload='metadata';
+    audio.addEventListener('loadedmetadata',()=>{
+      const segundos=audio.duration;
+      if(!Number.isFinite(segundos)||segundos<=0){
+        finalizar(new Error('O navegador não conseguiu identificar a duração do áudio.'));
+      }else{
+        finalizar(null,Math.ceil(segundos));
+      }
+    },{once:true});
+    audio.addEventListener('error',()=>finalizar(new Error('Não foi possível ler os metadados do áudio.')),{once:true});
+    audio.src=url;
+    audio.load();
+  });
+}
+inputArquivoEnvio.addEventListener('change',async()=>{
+  const arquivo=inputArquivoEnvio.files[0];
+  arquivoDuracaoAtual=null;duracaoArquivoAtual=null;
+  if(!arquivo){textoDuracaoArquivo.textContent='Duração: selecione um arquivo de áudio.';return;}
+  textoDuracaoArquivo.textContent='Identificando duração...';
+  try{
+    const duracao=await lerDuracaoAudio(arquivo);
+    if(inputArquivoEnvio.files[0]!==arquivo)return;
+    arquivoDuracaoAtual=arquivo;duracaoArquivoAtual=duracao;
+    textoDuracaoArquivo.textContent='Duração identificada: '+formatarDuracaoAudio(duracao);
+  }catch(erro){
+    if(inputArquivoEnvio.files[0]!==arquivo)return;
+    textoDuracaoArquivo.textContent='Não foi possível identificar a duração: '+erro.message;
+  }
+});
+
 document.getElementById('formEnvioMusica').addEventListener('submit',async e=>{
   e.preventDefault();const b=document.getElementById('btnEnviarMusica');b.disabled=true;msgEnvio.textContent='Enviando...';
   let caminho=null;
@@ -730,6 +784,9 @@ document.getElementById('formEnvioMusica').addEventListener('submit',async e=>{
     if(!arquivo||arquivo.size>25*1024*1024||arquivo.size===0)throw new Error('Escolha um arquivo de até 25 MB.');
     const extensao=arquivo.name.split('.').pop().toLowerCase();
     if(!['mp3','wav','m4a'].includes(extensao))throw new Error('Formato permitido: MP3, WAV ou M4A.');
+    // Revalida a duração antes de qualquer upload, mesmo que o usuário envie rapidamente.
+    const duracaoSegundos = arquivoDuracaoAtual===arquivo && Number.isInteger(duracaoArquivoAtual)
+      ? duracaoArquivoAtual : await lerDuracaoAudio(arquivo);
     const capa=inputCapaEnvio.files[0];
     if(capa){
       const extensaoCapa=capa.name.split('.').pop().toLowerCase();
@@ -747,8 +804,8 @@ document.getElementById('formEnvioMusica').addEventListener('submit',async e=>{
       const respostaCapa=await fetch(bucketEnvios+'/'+bucketCapas+'/'+caminhoCapa,{method:'POST',headers:cabecalhosArtista({'Content-Type':capa.type,'x-upsert':'false'}),body:capa});
       if(!respostaCapa.ok){const d=await respostaCapa.json().catch(()=>({}));throw new Error('Falha no envio da capa: '+(d.message||d.error||respostaCapa.status));}
     }
-    await apiArtista(tabelaEnvios,{method:'POST' ,headers:{'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({usuario_id:userId,titulo:document.getElementById('tituloEnvio').value.trim(),artista:document.getElementById('artistaEnvio').value.trim(),genero:document.getElementById('generoEnvio').value,arquivo_caminho:caminho,capa_caminho:caminhoCapa})});
-    document.getElementById('formEnvioMusica').reset();limparPreviewCapa();msgEnvio.textContent='Música enviada gratuitamente! Situação: pendente de análise.';
+    await apiArtista(tabelaEnvios,{method:'POST' ,headers:{'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({usuario_id:userId,titulo:document.getElementById('tituloEnvio').value.trim(),artista:document.getElementById('artistaEnvio').value.trim(),genero:document.getElementById('generoEnvio').value,arquivo_caminho:caminho,capa_caminho:caminhoCapa,duracao_segundos:duracaoSegundos})});
+    document.getElementById('formEnvioMusica').reset();limparPreviewCapa();arquivoDuracaoAtual=null;duracaoArquivoAtual=null;textoDuracaoArquivo.textContent='Duração: selecione um arquivo de áudio.';msgEnvio.textContent='Música enviada gratuitamente! Situação: pendente de análise.';
     await carregarMeusEnvios();
   }catch(err){msgEnvio.textContent='Não foi possível enviar: '+err.message+' (se algum arquivo foi enviado, pode ser necessário limpar arquivos órfãos no Storage).';}
   finally{b.disabled=false;}
