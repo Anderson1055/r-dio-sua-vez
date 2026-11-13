@@ -169,8 +169,42 @@ async function listarMusicas(){
   const quantidades={aguardando:0,aprovada:0,rejeitada:0,lixeira:0};
   for(const m of registros){const e=estado(m);el(destinos[e]).appendChild(montarMusica(m));quantidades[e]++;}
   for(const e of Object.keys(destinos)){el(contadores[e]).textContent=quantidades[e];if(!quantidades[e]){const p=document.createElement('p');p.className='muted';p.textContent='Nenhuma música nesta categoria.';el(destinos[e]).appendChild(p);}}
+  // Envios aprovados aparecem também na biblioteca, apenas para consulta.
+  // Não são inseridos em 'musicas' e não entram na programação.
+  let totalEnvios=0;
+  let avisoEnvios='';
+  try{
+   const {data:envios,error:erroEnvios}=await client.from('envios_artistas')
+     .select('*').eq('status','aprovada').limit(500);
+   if(erroEnvios)throw erroEnvios;
+   const destino=el('listaAprovadas');
+   const idsJaMostrados=new Set();
+   for(const envio of envios||[]){
+    const titulo=String(envio.titulo||envio.nome_musica||'Sem título');
+    const artista=String(envio.artista||envio.nome_artista||'Artista não informado');
+    const chave=normalizarBusca(titulo+'|'+artista);
+    if(idsJaMostrados.has(chave))continue;
+    idsJaMostrados.add(chave);
+    const item=document.createElement('div');
+    item.className='musica';
+    item.dataset.busca=titulo+' '+artista;
+    const nome=document.createElement('strong');
+    nome.textContent='🎵 '+titulo+' — '+artista;
+    const nota=document.createElement('p');
+    nota.className='aviso';
+    nota.textContent='Aprovada no envio do artista • ainda não liberada para transmissão. Consulte a seção Envios dos artistas para administrar.';
+    item.append(nome,nota);
+    destino.appendChild(item);
+    totalEnvios++;
+   }
+   if(totalEnvios){
+    const vazio=destino.querySelector('p.muted');
+    if(quantidades.aprovada===0 && vazio && vazio.textContent==='Nenhuma música nesta categoria.')vazio.remove();
+    el('qtdAprovadas').textContent=quantidades.aprovada+totalEnvios;
+   }
+  }catch(e){avisoEnvios=' Não foi possível consultar os envios dos artistas: '+e.message;}
   aplicarBusca();
-  mensagem('Lista atualizada: '+registros.length+' cadastro(s).','ok');
+  mensagem('Lista atualizada: '+registros.length+' cadastro(s) na biblioteca e '+totalEnvios+' envio(s) aprovado(s) exibido(s).'+avisoEnvios,avisoEnvios?'aviso':'ok');
  }catch(e){mensagem('Erro ao carregar músicas: '+e.message,'erro');}finally{carregando=false;el('btnListarMusicas').disabled=false;}
 }
 // Só remove arquivos que seguem o padrão criado pelo formulário desta rádio.
