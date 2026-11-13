@@ -22,7 +22,7 @@
 .estilos-painel button{margin-top:12px}.estilos-resumo{font-size:12px;color:#a8f0be;margin:6px 0}
 /* Contratações de teste */
 .pedido-card{padding:15px;border:1px solid #44516a;border-radius:12px;margin:12px 0;background:#1b2438;overflow-wrap:anywhere}
-.pedido-card p{margin:7px 0}.pedido-card button{margin-top:10px}
+.pedido-card p{margin:7px 0}.pedido-card button{margin-top:10px}.checagem-pedido{border-left:3px solid #ffbd35;padding:8px 12px;margin-top:12px;background:#222d46;border-radius:5px}
 </style>
 </head>
 <body>
@@ -378,7 +378,7 @@ async function listarContratacoes(){
   const ids=[...new Set((pedidos||[]).map(p=>p.envio_id).filter(Boolean))];
   const titulos=new Map();
   if(ids.length){
-   const {data:envios,error:erroEnvios}=await client.from('envios_artistas').select('id,titulo,artista').in('id',ids);
+   const {data:envios,error:erroEnvios}=await client.from('envios_artistas').select('*').in('id',ids);
    if(erroEnvios)throw erroEnvios;
    for(const e of envios||[])titulos.set(e.id,e);
   }
@@ -395,6 +395,26 @@ async function listarContratacoes(){
    if(p.pago_em)adicionarTexto(card,'Pagamento registrado em',new Date(p.pago_em).toLocaleString('pt-BR'));
    if(p.inicio_em)adicionarTexto(card,'Início',new Date(p.inicio_em).toLocaleString('pt-BR'));
    if(p.fim_em)adicionarTexto(card,'Fim',new Date(p.fim_em).toLocaleString('pt-BR'));
+   // Conferência informativa: não altera pagamentos nem ativa a transmissão.
+   const checar=criarBotao('🔎 Verificar requisitos para transmissão',()=>{
+    const painel=card.querySelector('.checagem-pedido');
+    if(painel){painel.remove();return;}
+    const resultado=document.createElement('div');resultado.className='checagem-pedido';
+    const situacao=String(p.status||'').toLowerCase();
+    const temCapa=Boolean(envio && [envio.capa_caminho,envio.capa_url,envio.url_capa].some(v=>typeof v==='string'&&v.trim()));
+    const temAudio=Boolean(envio && [envio.arquivo_caminho,envio.arquivo_url,envio.audio_url,envio.mp3_url].some(v=>typeof v==='string'&&v.trim()));
+    const aprovado=String(envio?.status||'').toLowerCase()==='aprovada';
+    const linhas=[
+     'Análise artística: '+(aprovado?'aprovada':'não aprovada ou não identificada'),
+     'Arquivo de áudio: '+(temAudio?'cadastrado':'não identificado'),
+     'Capa: '+(temCapa?'cadastrada':'pendente — obrigatória antes da transmissão'),
+     'Pagamento: '+(situacao==='confirmado_teste'?'somente TESTE — nenhum Pix real comprovado':situacao==='aguardando_pagamento'?'aguardando pagamento': 'status '+(p.status||'não informado')+' — requer verificação segura no servidor'),
+     'Liberação: BLOQUEADA até existir validação de pagamento real no servidor e programação automática.'
+    ];
+    for(const linha of linhas){const par=document.createElement('p');par.textContent=linha;resultado.appendChild(par);}
+    card.appendChild(resultado);
+   });
+   card.appendChild(checar);
    if(p.status==='aguardando_pagamento'){
     const confirmar=criarBotao('🧪 Confirmar pagamento de TESTE',async()=>{
      if(operando||!(await adminAutorizado()))return;
