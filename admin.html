@@ -35,7 +35,7 @@
 </section>
 <main id="areaAdmin" hidden>
 <section class="card"><h2>🎵 Adicionar música</h2>
-<form id="formAdicionar"><label for="nomeMusica">Nome da música</label><input id="nomeMusica" type="text" placeholder="Ex.: Meu Girassol" required maxlength="200"><label for="nomeArtista">Nome do artista</label><input id="nomeArtista" type="text" placeholder="Ex.: Anderson Picoloto" required maxlength="200"><label for="arquivoMp3">Arquivo MP3</label><input id="arquivoMp3" type="file" accept="audio/mpeg,.mp3" required><label for="arquivoCapa">Capa da música</label><input id="arquivoCapa" type="file" accept="image/png,image/jpeg,image/webp" required><button type="submit" id="btnAdicionarMusica">Adicionar música</button></form><p><small>As músicas novas entram em “Aguardando aprovação”.</small></p></section>
+<form id="formAdicionar"><label for="nomeMusica">Nome da música</label><input id="nomeMusica" type="text" placeholder="Ex.: Meu Girassol" required maxlength="200"><label for="nomeArtista">Nome do artista</label><input id="nomeArtista" type="text" placeholder="Ex.: Anderson Picoloto" required maxlength="200"><label for="arquivoMp3">Arquivo MP3</label><input id="arquivoMp3" type="file" accept="audio/mpeg,.mp3" required><label for="arquivoCapa">Capa da música</label><input id="arquivoCapa" type="file" accept="image/png,image/jpeg,image/webp" required><button type="submit" id="btnAdicionarMusica">Adicionar música</button></form><p><small>Músicas cadastradas pelo administrador entram aprovadas, sem cobrança. Você decide quando liberar para a programação da rádio.</small></p></section>
 <section class="card" id="secaoEnvios"><h2>📨 Envios dos artistas para análise</h2><p class="muted">Os envios desta seção vêm da tabela <code>envios_artistas</code>. A aprovação aqui não coloca a música automaticamente no ar nem solicita pagamento.</p><button type="button" id="btnAtualizarEnvios">🔄 Atualizar envios dos artistas</button><p id="mensagemEnvios" role="status"></p><div id="listaEnviosArtistas" class="lista-rolagem" aria-label="Envios dos artistas"></div></section>
 <section class="card" id="secaoContratacoes"><h2>💳 Contratações de divulgação — testes</h2><p class="muted">Pedidos registrados no Supabase. Esta área trabalha somente com confirmações simuladas; não gera Pix nem coloca músicas na programação.</p><button type="button" id="btnAtualizarContratacoes">🔄 Atualizar contratações</button><p id="mensagemContratacoes" role="status"></p><div id="listaContratacoes" aria-label="Contratações registradas"></div></section>
 <section class="card"><h2>🎵 Biblioteca de músicas</h2><p class="ok"><strong>🔎 Pesquisa, rolagem e múltiplos estilos — versão categorias</strong></p><button type="button" id="btnListarMusicas">🔄 Atualizar lista de músicas</button><p id="mensagemPainel" role="status"></p>
@@ -127,8 +127,8 @@ async function mudarMusica(m,acao){
  if(!confirm(textos[acao]+' a música “'+m.titulo+'”?'))return;
  const anterior=estado(m);let alteracoes;
  if(acao==='aprovar')alteracoes={aprovada:true,status:'aprovada',excluida_em:null};
- else if(acao==='rejeitar')alteracoes={aprovada:false,status:'rejeitada',excluida_em:null};
- else if(acao==='excluir')alteracoes={excluida_em:new Date().toISOString()};
+ else if(acao==='rejeitar')alteracoes={aprovada:false,status:'rejeitada',excluida_em:null,liberada_radio:false};
+ else if(acao==='excluir')alteracoes={excluida_em:new Date().toISOString(),liberada_radio:false};
  else if(acao==='restaurar')alteracoes={excluida_em:null};
  else return;
  operando=true;mensagem('Salvando alteração...');
@@ -140,6 +140,28 @@ async function mudarMusica(m,acao){
  }catch(e){mensagem('Erro ao alterar música: '+e.message,'erro');alert('Não foi possível alterar: '+e.message);operando=false;return;}
  operando=false;await listarMusicas();
 }
+// Liberação administrativa: altera somente a autorização no banco.
+// O envio ao AzuraCast será implementado em uma etapa separada, no servidor.
+async function alternarLiberacaoRadio(m){
+ if(operando)return;
+ if(!(await adminAutorizado())){alert('Acesso não autorizado.');return;}
+ if(m.origem!=='administrador'){alert('Esta ação é exclusiva das músicas cadastradas pelo administrador.');return;}
+ if(estado(m)!=='aprovada'){alert('A música precisa estar aprovada.');return;}
+ const liberar=!m.liberada_radio;
+ if(liberar&&(!m.arquivo_url||!m.capa_url)){alert('É necessário ter MP3 e capa cadastrados antes de liberar.');return;}
+ if(!confirm((liberar?'Liberar':'Retirar da programação')+' “'+m.titulo+'”?\nEsta ação ainda não envia o áudio ao AzuraCast.'))return;
+ operando=true;
+ try{
+  const {data,error}=await client.from('musicas')
+   .update({liberada_radio:liberar})
+   .eq('id',m.id).eq('origem','administrador')
+   .select('id,liberada_radio');
+  if(error)throw error;
+  if(data?.length!==1)throw new Error('O Supabase não confirmou a alteração. Verifique as políticas RLS.');
+  mensagem(liberar?'Música autorizada no banco. O envio ao AzuraCast ainda será configurado.':'Liberação retirada no banco.','ok');
+ }catch(e){mensagem('Erro ao alterar liberação: '+e.message,'erro');alert(e.message);}
+ finally{operando=false;await listarMusicas();}
+}
 function montarMusica(m){
  const item=document.createElement('div');item.className='musica';item.dataset.busca=(m.titulo||'')+' '+(m.artista||'');
  const cabecalho=document.createElement('button');cabecalho.type='button';cabecalho.className='musica-cabecalho';cabecalho.setAttribute('aria-expanded','false');
@@ -149,6 +171,12 @@ function montarMusica(m){
  item.appendChild(cabecalho);
  if(m.arquivo_url){const player=document.createElement('audio');player.controls=true;player.preload='none';player.src=m.arquivo_url;conteudo.appendChild(player);}else{const aviso=document.createElement('p');aviso.className='aviso';aviso.textContent='Cadastro sem endereço do MP3.';conteudo.appendChild(aviso);}
  const acoes=document.createElement('div');acoes.className='acoes';const e=estado(m);
+ if(m.origem==='administrador'&&e==='aprovada'){
+  const aviso=document.createElement('p');aviso.className=m.liberada_radio?'ok':'aviso';
+  aviso.textContent=m.liberada_radio?'📻 Autorizada no banco (integração com AzuraCast pendente)':'📻 Ainda não liberada para a rádio';
+  conteudo.appendChild(aviso);
+  acoes.appendChild(criarBotao(m.liberada_radio?'⏸️ Retirar liberação':'📻 Liberar na rádio',()=>alternarLiberacaoRadio(m)));
+ }
  if(e!=='lixeira')conteudo.appendChild(montarSeletorEstilos(m));
  if(e==='lixeira'){acoes.appendChild(criarBotao('↩️ Restaurar',()=>mudarMusica(m,'restaurar')));acoes.appendChild(criarBotao('🗑️ Excluir definitivamente',()=>excluirDefinitivamente(m)));}
  else{
@@ -165,7 +193,7 @@ async function listarMusicas(){
   if(!(await adminAutorizado()))throw new Error('Acesso não autorizado.');
   // Fonte única: tabela de cadastros. Arquivos soltos no Storage não viram músicas duplicadas.
   const registros=[];let inicio=0;const lote=500;
-  while(true){const {data,error}=await client.from('musicas').select('id,titulo,artista,arquivo_url,capa_url,status,aprovada,excluida_em,estilos').order('id',{ascending:true}).range(inicio,inicio+lote-1);if(error)throw error;registros.push(...(data||[]));if(!data||data.length<lote)break;inicio+=lote;if(inicio>=10000)throw new Error('Limite de registros atingido.');}
+  while(true){const {data,error}=await client.from('musicas').select('id,titulo,artista,arquivo_url,capa_url,status,aprovada,excluida_em,estilos,origem,liberada_radio').order('id',{ascending:true}).range(inicio,inicio+lote-1);if(error)throw error;registros.push(...(data||[]));if(!data||data.length<lote)break;inicio+=lote;if(inicio>=10000)throw new Error('Limite de registros atingido.');}
   itensLixeira=registros.filter(m=>estado(m)==='lixeira');
   el('btnEsvaziarLixeira').disabled=itensLixeira.length===0;
   for(const id of Object.values(destinos))el(id).replaceChildren();
@@ -476,7 +504,7 @@ el('formAdicionar').addEventListener('submit',async event=>{
  if(!titulo||!artista||!mp3||!capa){alert('Preencha o título, artista, MP3 e capa.');return;}
  if(!mp3.name.toLowerCase().endsWith('.mp3')){alert('Escolha um arquivo MP3.');return;}
  const ext=capa.name.split('.').pop().toLowerCase();if(!['jpg','jpeg','png','webp'].includes(ext)){alert('A capa deve ser JPG, PNG ou WEBP.');return;}
- if(!confirm('Cadastrar “'+titulo+'” como aguardando aprovação?'))return;
+ if(!confirm('Cadastrar “'+titulo+'” como música do administrador, aprovada e ainda não liberada para a rádio?'))return;
  operando=true;const botao=el('btnAdicionarMusica');botao.disabled=true;botao.textContent='Enviando...';
  const base=crypto.randomUUID(),caminhoMp3=base+'.mp3',caminhoCapa=base+'.'+ext;let mp3Enviado=false,capaEnviada=false;
  try{
@@ -484,7 +512,7 @@ el('formAdicionar').addEventListener('submit',async event=>{
   resultado=await client.storage.from('musicas').upload(caminhoCapa,capa,{contentType:capa.type||'image/jpeg',upsert:false});if(resultado.error)throw resultado.error;capaEnviada=true;
   const urlMp3=client.storage.from('musicas').getPublicUrl(caminhoMp3).data.publicUrl;
   const urlCapa=client.storage.from('musicas').getPublicUrl(caminhoCapa).data.publicUrl;
-  const {data,error}=await client.from('musicas').insert({titulo,artista,arquivo_url:urlMp3,capa_url:urlCapa,aprovada:false,status:'aguardando'}).select('id');
+  const {data,error}=await client.from('musicas').insert({titulo,artista,arquivo_url:urlMp3,capa_url:urlCapa,aprovada:true,status:'aprovada',origem:'administrador',liberada_radio:false}).select('id');
   if(error)throw error;if(!data||data.length!==1)throw new Error('O banco não confirmou o cadastro.');
   el('formAdicionar').reset();alert('Música cadastrada com sucesso!');await listarMusicas();
  }catch(e){
