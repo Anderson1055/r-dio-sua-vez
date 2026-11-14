@@ -161,13 +161,13 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
       <button type="submit" id="btnEnviarMusica">Enviar música gratuitamente</button>
     </form>
     <p id="mensagemEnvio" role="status" aria-live="polite"></p>
-    <h3>📋 Minhas músicas enviadas</h3>
+    <h3>📋 Minhas músicas enviadas</h3><p class="envio-ajuda">Etapas: enviada → em análise → aprovada → aguardando pagamento → pagamento confirmado → liberada pela administração → programação. Aprovação sozinha não publica a música.</p>
     <button type="button" id="atualizarEnvios">Atualizar situação</button>
-    <p id="resumoPlanos" class="seguranca-artista" role="status">Selecione um plano em cada música aprovada para visualizar o total. Nenhuma cobrança será feita.</p><div id="listaMeusEnvios"></div>
+    <p id="resumoPlanos" class="seguranca-artista" role="status">Depois da aprovação, escolha um plano por música. O Pix real ainda não está habilitado.</p><div id="listaMeusEnvios"></div>
   </div>
   <div id="painelAdmin" hidden>
     <h3>🛡️ Administração — músicas para análise</h3>
-    <p class="envio-ajuda">Aprovar aqui apenas libera a etapa de contratação. A música não entra automaticamente na rádio.</p>
+    <p class="envio-ajuda">Aprovar libera somente a contratação. O áudio continua privado. A liberação pública e o envio ao AzuraCast exigem confirmação de pagamento e ação administrativa no fluxo do servidor.</p>
     <button type="button" id="atualizarAdmin">Atualizar solicitações</button>
     <p id="mensagemAdmin" role="status"></p>
     <div id="listaAdmin"></div>
@@ -746,13 +746,13 @@ async function carregarMeusEnvios(){
          const contrato=porEnvio.get(String(m.id));
          const plano=PLANOS_DIVULGACAO.find(p=>p.codigo===contrato.plano);
          const p=document.createElement('p');p.className='plano-aviso';
-         p.textContent='📣 Plano escolhido: '+(plano?plano.nome+' — '+plano.preco:contrato.plano)+' | Situação: '+(contrato.status==='aguardando_pagamento'?'Aguardando pagamento de teste (nenhum Pix real)':contrato.status);
+         p.textContent='📣 Plano escolhido: '+(plano?plano.nome+' — '+plano.preco:contrato.plano)+' | Situação: '+(contrato.status==='aguardando_pagamento'?'Aguardando pagamento — Pix ainda não habilitado':contrato.status);
          div.append(p);
        }
        if(normalizar(m.status)==='aprovada' && !porEnvio.has(String(m.id))){
          const area=document.createElement('div');area.className='plano-contratacao';
          const titulo=document.createElement('h4');titulo.textContent='📣 Contratar divulgação';area.append(titulo);
-         const descricao=document.createElement('p');descricao.className='plano-aviso';descricao.textContent='Planos em preparação. Você pode simular um pedido, mas a contratação e o pagamento Pix reais ainda não estão disponíveis. A música só entrará na programação após pagamento confirmado e capa verificada.';area.append(descricao);
+         const descricao=document.createElement('p');descricao.className='plano-aviso';descricao.textContent='Música aprovada e guardada em área privada, aguardando pagamento. Escolha o plano abaixo. Por enquanto, somente a simulação de contratação está disponível: nenhum Pix real será gerado. Após a confirmação real do pagamento, a administração deverá liberar a música para a biblioteca pública e enviá-la ao AzuraCast.';area.append(descricao);
          const grade=document.createElement('div');grade.className='planos-lista';
          let escolhido=null;
          const opcoes=[];
