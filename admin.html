@@ -161,8 +161,12 @@ async function controlarProgramacao(m, ativar, aviso){
    throw new Error(detalhe);
   }
   if(data?.sucesso!==true)throw new Error(data?.erro||'O servidor não confirmou a alteração da playlist.');
+  const {data:registro,error:erroConferencia}=await client.from('musicas')
+    .select('id,liberada_radio').eq('id',m.id).maybeSingle();
+  if(erroConferencia||!registro)throw new Error('Servidor respondeu, mas não foi possível confirmar a liberação no banco.');
+  if(registro.liberada_radio!==ativar)throw new Error('A liberação no banco ainda não corresponde à operação solicitada.');
   aviso.className='ok';aviso.textContent=data.mensagem||'Programação alterada no AzuraCast.';
-  mensagem('Programação atualizada: '+m.titulo,'ok');
+  mensagem('Programação confirmada no banco: '+m.titulo,'ok');
  }catch(e){
   aviso.className='erro';aviso.textContent='Não foi possível alterar a programação: '+e.message;
   mensagem('A rádio não foi confirmada como alterada. '+e.message,'erro');
@@ -215,8 +219,11 @@ function montarMusica(m){
   const aviso=document.createElement('p');aviso.className=m.liberada_radio?'ok':'aviso';
   aviso.textContent=m.liberada_radio?'📻 Liberação registrada no banco; confirme a playlist no AzuraCast.':'📻 Sem liberação registrada no banco.';
   conteudo.appendChild(aviso);
-  acoes.appendChild(criarBotao('▶️ Ativar na rádio',()=>controlarProgramacao(m,true,aviso)));
-  acoes.appendChild(criarBotao('⏸️ Retirar da rádio',()=>controlarProgramacao(m,false,aviso)));
+  if(m.liberada_radio===true){
+   acoes.appendChild(criarBotao('⏸️ Retirar da rádio',()=>controlarProgramacao(m,false,aviso)));
+  }else{
+   acoes.appendChild(criarBotao('▶️ Ativar na rádio',()=>controlarProgramacao(m,true,aviso)));
+  }
   if(m.liberada_radio===true){
    const enviar=criarBotao('📤 Enviar ao AzuraCast',()=>enviarMusicaAzuraCast(m,enviar,aviso));
    acoes.appendChild(enviar);
