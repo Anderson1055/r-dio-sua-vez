@@ -162,6 +162,40 @@ async function alternarLiberacaoRadio(m){
  }catch(e){mensagem('Erro ao alterar liberação: '+e.message,'erro');alert(e.message);}
  finally{operando=false;await listarMusicas();}
 }
+// Envia somente músicas do administrador aprovadas e liberadas.
+// O servidor valida novamente os requisitos antes de aceitar o áudio.
+async function enviarMusicaAzuraCast(m, botao, aviso){
+ if(operando)return;
+ if(!(await adminAutorizado())){alert('Sessão administrativa expirada. Entre novamente.');return;}
+ if(m.origem!=='administrador'||estado(m)!=='aprovada'||m.liberada_radio!==true){
+  alert('A música precisa estar aprovada e liberada pelo administrador.');return;
+ }
+ if(!confirm('Enviar “'+m.titulo+'” para a biblioteca do AzuraCast?\nIsso ainda não agenda a música para tocar.'))return;
+ operando=true;botao.disabled=true;
+ const rotuloOriginal=botao.textContent;
+ botao.textContent='⏳ Enviando...';
+ aviso.className='aviso';aviso.textContent='Enviando o MP3 ao AzuraCast. Aguarde a confirmação...';
+ try{
+  const {data,error}=await client.functions.invoke('radio-azuracast',{
+   body:{acao:'enviar_musica',musica_id:Number(m.id)}
+  });
+  if(error){
+   let detalhe=error.message||'Erro na chamada da função.';
+   if(error.context&&typeof error.context.json==='function'){
+    try{const resposta=await error.context.json();detalhe=resposta.erro||detalhe;}catch{}
+   }
+   throw new Error(detalhe);
+  }
+  if(data?.sucesso!==true)throw new Error(data?.erro||'O servidor não confirmou o envio.');
+  aviso.className='ok';
+  aviso.textContent='✅ '+(data.mensagem||'Áudio enviado ao AzuraCast. Programação ainda pendente.');
+  mensagem('Envio de “'+m.titulo+'” confirmado pelo servidor.','ok');
+ }catch(e){
+  aviso.className='erro';aviso.textContent='❌ Falha no envio: '+e.message;
+  mensagem('Falha no envio ao AzuraCast: '+e.message,'erro');
+ }finally{operando=false;botao.disabled=false;botao.textContent=rotuloOriginal;}
+}
+
 function montarMusica(m){
  const item=document.createElement('div');item.className='musica';item.dataset.busca=(m.titulo||'')+' '+(m.artista||'');
  const cabecalho=document.createElement('button');cabecalho.type='button';cabecalho.className='musica-cabecalho';cabecalho.setAttribute('aria-expanded','false');
@@ -176,6 +210,10 @@ function montarMusica(m){
   aviso.textContent=m.liberada_radio?'📻 Autorizada no banco (integração com AzuraCast pendente)':'📻 Ainda não liberada para a rádio';
   conteudo.appendChild(aviso);
   acoes.appendChild(criarBotao(m.liberada_radio?'⏸️ Retirar liberação':'📻 Liberar na rádio',()=>alternarLiberacaoRadio(m)));
+  if(m.liberada_radio===true){
+   const enviar=criarBotao('📤 Enviar ao AzuraCast',()=>enviarMusicaAzuraCast(m,enviar,aviso));
+   acoes.appendChild(enviar);
+  }
  }
  if(e!=='lixeira')conteudo.appendChild(montarSeletorEstilos(m));
  if(e==='lixeira'){acoes.appendChild(criarBotao('↩️ Restaurar',()=>mudarMusica(m,'restaurar')));acoes.appendChild(criarBotao('🗑️ Excluir definitivamente',()=>excluirDefinitivamente(m)));}
