@@ -163,7 +163,7 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
     <p id="mensagemEnvio" role="status" aria-live="polite"></p>
     <h3>📋 Minhas músicas enviadas</h3><p class="envio-ajuda">Etapas: enviada → em análise → aprovada → aguardando pagamento → pagamento confirmado → liberada pela administração → programação. Aprovação sozinha não publica a música.</p>
     <button type="button" id="atualizarEnvios">Atualizar situação</button>
-    <p id="resumoPlanos" class="seguranca-artista" role="status">Depois da aprovação, escolha um plano por música. O Pix real ainda não está habilitado.</p><div id="listaMeusEnvios"></div>
+    <p id="resumoPlanos" class="seguranca-artista" role="status">Depois da aprovação, escolha um plano por música e gere seu Pix real pelo Mercado Pago.</p><div id="listaMeusEnvios"></div>
   </div>
   <div id="painelAdmin" hidden>
     <h3>🛡️ Administração — músicas para análise</h3>
@@ -673,7 +673,7 @@ const PLANOS_DIVULGACAO = Object.freeze([
   {codigo:'premium',nome:'Premium',valor:69.90,preco:'R$ 69,90',dias:30,porDia:4,total:120}
 ]);
 const tabelaContratacoes = supabaseUrl + '/rest/v1/contratacoes_divulgacao';
-const tabelaPagamentosTeste = supabaseUrl + '/rest/v1/pagamentos_teste';
+const funcaoPix = supabaseUrl + '/functions/v1/mercadopago-pix';
 const escolhasPlanos = new Map();
 const moedaBR = valor => valor.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 function atualizarResumoPlanos(){
@@ -681,8 +681,8 @@ function atualizarResumoPlanos(){
   if(!resumo)return;
   const escolhas=[...escolhasPlanos.values()];
   resumo.textContent=escolhas.length
-    ? 'Planos selecionados: '+escolhas.length+' música(s). Cada música terá um pedido de teste separado, sem cobrança real.'
-    : 'Selecione um plano por música. Nenhuma cobrança real será feita.';
+    ? 'Planos selecionados: '+escolhas.length+' música(s). O pagamento Pix será real e individual.'
+    : 'Escolha um plano por música. O Pix será gerado após confirmar a contratação.';
 }
 const msgEnvio = document.getElementById('mensagemEnvio');
 const msgAdmin = document.getElementById('mensagemAdmin');
@@ -726,6 +726,32 @@ async function urlCapaPrivada(caminho){
   const d=await apiArtista(bucketEnvios+'/sign/'+bucketCapas+'/'+caminho,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expiresIn:600})});
   return supabaseUrl+'/storage/v1'+d.signedURL;
 }
+async function executarGeracaoPix(contratacaoId,botao){
+  const textoAnterior=botao.textContent;botao.disabled=true;botao.textContent='Gerando Pix...';
+  try{
+    await garantirSessaoValida();
+    const controlador=new AbortController();
+    const limite=setTimeout(()=>controlador.abort(),30000);
+    let r;
+    try{r=await fetch(funcaoPix,{method:'POST',headers:cabecalhosArtista({'Content-Type':'application/json'}),body:JSON.stringify({contratacao_id:contratacaoId}),signal:controlador.signal});}
+    finally{clearTimeout(limite);}
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok||!d.sucesso)throw new Error(d.error||'Erro HTTP '+r.status);
+    if(!d.qr_code)throw new Error('Mercado Pago não devolveu o Pix copia e cola.');
+    const modal=document.getElementById('modalPixReal');
+    document.getElementById('codigoPixReal').value=d.qr_code;
+    const imagem=document.getElementById('imagemPixReal');
+    if(d.qr_code_base64){imagem.src='data:image/png;base64,'+d.qr_code_base64;imagem.hidden=false;}
+    else{imagem.hidden=true;imagem.removeAttribute('src');}
+    const link=document.getElementById('linkPixReal');
+    if(d.ticket_url&&/^https:\/\//i.test(d.ticket_url)){link.href=d.ticket_url;link.hidden=false;}
+    else{link.hidden=true;link.removeAttribute('href');}
+    document.getElementById('mensagemPixReal').textContent='Pix gerado. Aguardando pagamento e confirmação automática pelo Mercado Pago.';
+    modal.hidden=false;
+  }catch(e){
+    alert('Não foi possível gerar o Pix: '+(e.name==='AbortError'?'Tempo limite excedido. Verifique o pagamento antes de tentar novamente.':e.message));
+  }finally{botao.disabled=false;botao.textContent=textoAnterior;}
+}
 async function carregarMeusEnvios(){
   if(!sessaoArtista?.access_token)return;
   const lista=document.getElementById('listaMeusEnvios');lista.textContent='Carregando...';
@@ -734,7 +760,7 @@ async function carregarMeusEnvios(){
     lista.replaceChildren();
     if(!dados.length){lista.textContent='Nenhuma música enviada ainda.';return;}
      // Consultar contratações já registradas para evitar pedidos duplicados.
-     const contratos=await apiArtista(tabelaContratacoes+'?select=id,envio_id,plano,status,pagamento_teste_id&usuario_id=eq.'+encodeURIComponent(sessaoArtista.user.id)+'&order=criado_em.desc&limit=200');
+     const contratos=await apiArtista(tabelaContratacoes+'?select=id,envio_id,plano,status,pagamento_id&usuario_id=eq.'+encodeURIComponent(sessaoArtista.user.id)+'&order=criado_em.desc&limit=200');
       escolhasPlanos.clear();atualizarResumoPlanos();
      const porEnvio=new Map(contratos.map(c=>[String(c.envio_id),c]));
     dados.forEach(m=>{
@@ -746,47 +772,53 @@ async function carregarMeusEnvios(){
          const contrato=porEnvio.get(String(m.id));
          const plano=PLANOS_DIVULGACAO.find(p=>p.codigo===contrato.plano);
          const p=document.createElement('p');p.className='plano-aviso';
-         p.textContent='📣 Plano escolhido: '+(plano?plano.nome+' — '+plano.preco:contrato.plano)+' | Situação: '+(contrato.status==='aguardando_pagamento'?'Aguardando pagamento — Pix ainda não habilitado':contrato.status);
+         p.textContent='📣 Plano: '+(plano?plano.nome+' — '+plano.preco:contrato.plano)+' | Situação: '+contrato.status;
          div.append(p);
+         if(contrato.status==='aguardando_pagamento'){
+           if(!contrato.pagamento_id){
+             const gerar=document.createElement('button');gerar.type='button';gerar.textContent='💠 Gerar Pix real';
+             gerar.addEventListener('click',()=>executarGeracaoPix(contrato.id,gerar));div.append(gerar);
+           }else{
+             const aviso=document.createElement('p');aviso.className='plano-aviso';
+             aviso.textContent='Pix já criado. Se perdeu o código, não gere outra contratação; consulte o suporte para recuperar o pagamento.';div.append(aviso);
+           }
+         }
        }
        if(normalizar(m.status)==='aprovada' && !porEnvio.has(String(m.id))){
          const area=document.createElement('div');area.className='plano-contratacao';
          const titulo=document.createElement('h4');titulo.textContent='📣 Contratar divulgação';area.append(titulo);
-         const descricao=document.createElement('p');descricao.className='plano-aviso';descricao.textContent='Música aprovada e guardada em área privada, aguardando pagamento. Escolha o plano abaixo. Por enquanto, somente a simulação de contratação está disponível: nenhum Pix real será gerado. Após a confirmação real do pagamento, a administração deverá liberar a música para a biblioteca pública e enviá-la ao AzuraCast.';area.append(descricao);
+         const descricao=document.createElement('p');descricao.className='plano-aviso';descricao.textContent='Escolha um plano. O Pix será real e a música só poderá entrar na programação depois da confirmação do pagamento.';area.append(descricao);
          const grade=document.createElement('div');grade.className='planos-lista';
-         let escolhido=null;
-         const opcoes=[];
+         let escolhido=null;const opcoes=[];
          PLANOS_DIVULGACAO.forEach(plano=>{
            const botao=document.createElement('button');botao.type='button';botao.className='plano-opcao';
            botao.innerHTML='<strong>'+plano.nome+'</strong><span>'+plano.preco+'</span><span>'+plano.dias+' dias</span><span>'+plano.porDia+' execuções/dia</span><span>'+plano.total+' execuções previstas</span>';
            botao.setAttribute('aria-pressed','false');
            botao.addEventListener('click',()=>{escolhido=plano;escolhasPlanos.set(String(m.id),plano);opcoes.forEach(b=>{b.classList.toggle('selecionado',b===botao);b.setAttribute('aria-pressed',String(b===botao));});atualizarResumoPlanos();});
            opcoes.push(botao);grade.append(botao);
-         });
-         area.append(grade);
-         const confirmar=document.createElement('button');confirmar.type='button';confirmar.textContent='🧪 Simular pedido Pix (sem pagamento)';
+         });area.append(grade);
+         const confirmar=document.createElement('button');confirmar.type='button';confirmar.textContent='💠 Contratar e gerar Pix real';
          const retorno=document.createElement('p');retorno.className='plano-aviso';retorno.setAttribute('role','status');
-          retorno.textContent='Teste demonstrativo: nenhum Pix será gerado e nenhum pagamento será cobrado.';
-          confirmar.addEventListener('click',async()=>{
-            if(!escolhido){retorno.textContent='Selecione um plano antes de simular.';return;}
-            confirmar.disabled=true;
-            retorno.textContent='Registrando pedido de teste no Supabase...';
-            try{
-              // Uma contratação e um pagamento de teste por música, nunca um Pix real.
-              const existentes=await apiArtista(tabelaContratacoes+'?select=id,plano,status&envio_id=eq.'+encodeURIComponent(m.id)+'&usuario_id=eq.'+encodeURIComponent(sessaoArtista.user.id)+'&limit=1');
-              if(existentes.length){retorno.textContent='Esta música já possui uma contratação registrada. Atualize a lista para visualizar.';await carregarMeusEnvios();return;}
-              const contratosCriados=await apiArtista(tabelaContratacoes,{
-                method:'POST',headers:{'Content-Type':'application/json',Prefer:'return=representation'},
-                body:JSON.stringify({envio_id:m.id,usuario_id:sessaoArtista.user.id,plano:escolhido.codigo,valor:escolhido.valor,status:'aguardando_pagamento'})
-              });
-              if(!contratosCriados?.[0]?.id)throw new Error('Contratação não retornou identificador.');
-              retorno.textContent='Pedido de teste salvo! Música: '+m.titulo+' | Plano: '+escolhido.nome+' | '+moedaBR(escolhido.valor)+' | Aguardando pagamento. Nenhum Pix real foi gerado.';
-              escolhasPlanos.delete(String(m.id));atualizarResumoPlanos();
-              await carregarMeusEnvios();
-            }catch(e){retorno.textContent='Não foi possível registrar o pedido: '+e.message;}
-            finally{confirmar.disabled=false;}
-          });
-         area.append(confirmar,retorno);div.append(area);
+         confirmar.addEventListener('click',async()=>{
+           if(!escolhido){retorno.textContent='Selecione um plano.';return;}
+           if(!confirm('Gerar Pix REAL de '+escolhido.preco+' para '+m.titulo+'? O pagamento não será realizado automaticamente.'))return;
+           confirmar.disabled=true;retorno.textContent='Registrando contratação...';
+           try{
+             const existentes=await apiArtista(tabelaContratacoes+'?select=id,plano,status,pagamento_id&envio_id=eq.'+encodeURIComponent(m.id)+'&usuario_id=eq.'+encodeURIComponent(sessaoArtista.user.id)+'&limit=1');
+             let id;
+             if(existentes.length){
+               if(existentes[0].status!=='aguardando_pagamento'||existentes[0].pagamento_id)throw new Error('Esta música já possui uma contratação. Atualize a lista.');
+               id=existentes[0].id;
+             }else{
+               const criados=await apiArtista(tabelaContratacoes,{method:'POST',headers:{'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({envio_id:m.id,usuario_id:sessaoArtista.user.id,plano:escolhido.codigo,valor:escolhido.valor,status:'aguardando_pagamento'})});
+               id=criados?.[0]?.id;if(!id)throw new Error('Contratação não retornou identificador.');
+             }
+             retorno.textContent='Solicitando Pix ao Mercado Pago...';
+             await executarGeracaoPix(id,confirmar);
+             await carregarMeusEnvios();
+           }catch(e){retorno.textContent='Não foi possível gerar Pix: '+e.message;}
+           finally{confirmar.disabled=false;}
+         });area.append(confirmar,retorno);div.append(area);
        }
       lista.append(div);
     });
@@ -906,19 +938,24 @@ document.getElementById('formEnvioMusica').addEventListener('submit',async e=>{
     if(!capa&&!semCapaEnvio.checked)throw new Error('Escolha uma capa ou marque que ainda não tem capa.');
     const userId=sessaoArtista.user.id;
     caminho=userId+'/'+crypto.randomUUID()+'.'+extensao;
-    const r=await fetch(bucketEnvios+'/envios-musicais/'+caminho,{method:'POST',headers:cabecalhosArtista({'Content-Type':arquivo.type||'application/octet-stream','x-upsert':'false'}),body:arquivo});
+    msgEnvio.textContent='Enviando áudio ao Supabase...';
+    const controladorAudio=new AbortController();const limiteAudio=setTimeout(()=>controladorAudio.abort(),90000);
+    let r;try{r=await fetch(bucketEnvios+'/envios-musicais/'+caminho,{method:'POST',headers:cabecalhosArtista({'Content-Type':arquivo.type||'application/octet-stream','x-upsert':'false'}),body:arquivo,signal:controladorAudio.signal});}finally{clearTimeout(limiteAudio);}
     if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.message||d.error||'Falha no envio do arquivo');}
     let caminhoCapa=null;
     if(capa){
       const ext=capa.name.split('.').pop().toLowerCase();
       caminhoCapa=userId+'/'+crypto.randomUUID()+'.'+ext;
-      const respostaCapa=await fetch(bucketEnvios+'/'+bucketCapas+'/'+caminhoCapa,{method:'POST',headers:cabecalhosArtista({'Content-Type':capa.type,'x-upsert':'false'}),body:capa});
+      msgEnvio.textContent='Enviando capa...';
+      const controladorCapa=new AbortController();const limiteCapa=setTimeout(()=>controladorCapa.abort(),45000);
+      let respostaCapa;try{respostaCapa=await fetch(bucketEnvios+'/'+bucketCapas+'/'+caminhoCapa,{method:'POST',headers:cabecalhosArtista({'Content-Type':capa.type,'x-upsert':'false'}),body:capa,signal:controladorCapa.signal});}finally{clearTimeout(limiteCapa);}
       if(!respostaCapa.ok){const d=await respostaCapa.json().catch(()=>({}));throw new Error('Falha no envio da capa: '+(d.message||d.error||respostaCapa.status));}
     }
+    msgEnvio.textContent='Registrando música no banco...';
     await apiArtista(tabelaEnvios,{method:'POST' ,headers:{'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({usuario_id:userId,titulo:document.getElementById('tituloEnvio').value.trim(),artista:document.getElementById('artistaEnvio').value.trim(),genero:document.getElementById('generoEnvio').value,arquivo_caminho:caminho,capa_caminho:caminhoCapa,duracao_segundos:duracaoSegundos})});
     document.getElementById('formEnvioMusica').reset();limparPreviewCapa();arquivoDuracaoAtual=null;duracaoArquivoAtual=null;textoDuracaoArquivo.textContent='Duração: selecione um arquivo de áudio.';msgEnvio.textContent='Música enviada gratuitamente! Situação: pendente de análise.';
     await carregarMeusEnvios();
-  }catch(err){msgEnvio.textContent='Não foi possível enviar: '+err.message+' (se algum arquivo foi enviado, pode ser necessário limpar arquivos órfãos no Storage).';}
+  }catch(err){msgEnvio.textContent='Não foi possível enviar: '+(err.name==='AbortError'?'Tempo limite de envio excedido. Verifique sua conexão e tente novamente.':err.message)+' (se algum arquivo foi enviado, pode ser necessário limpar arquivos órfãos no Storage).';}
   finally{b.disabled=false;}
 });
 document.getElementById('atualizarEnvios').addEventListener('click',carregarMeusEnvios);
@@ -1029,5 +1066,26 @@ function mostrarDespedidaRadio() {
   </div>
 </div>
   
+<div id="modalPixReal" class="termos-modal" hidden role="dialog" aria-modal="true" aria-label="Pagamento Pix real">
+ <div class="termos-janela" style="max-width:520px;text-align:center">
+  <h2>💠 Pix real — Rádio Sua Vez</h2>
+  <p>Confira os dados antes de pagar. O pagamento será confirmado pelo Mercado Pago.</p>
+  <img id="imagemPixReal" alt="QR Code do Pix" hidden style="width:220px;max-width:100%;margin:10px auto">
+  <label for="codigoPixReal">Pix copia e cola</label>
+  <textarea id="codigoPixReal" readonly rows="4" style="width:100%;background:#171f33;color:white;padding:12px;border-radius:10px"></textarea>
+  <p><button type="button" id="copiarPixReal">📋 Copiar código Pix</button></p>
+  <p><a id="linkPixReal" target="_blank" rel="noopener noreferrer" hidden style="color:#ffcf69">Abrir detalhes do Pix no Mercado Pago</a></p>
+  <p id="mensagemPixReal" role="status"></p>
+  <button type="button" id="fecharPixReal">Fechar</button>
+ </div>
+</div>
+<script>
+document.getElementById('copiarPixReal').addEventListener('click',async()=>{
+ const texto=document.getElementById('codigoPixReal').value;
+ try{await navigator.clipboard.writeText(texto);document.getElementById('mensagemPixReal').textContent='Código copiado!';}
+ catch(e){document.getElementById('codigoPixReal').select();document.getElementById('mensagemPixReal').textContent='Selecione e copie o código manualmente.';}
+});
+document.getElementById('fecharPixReal').addEventListener('click',()=>document.getElementById('modalPixReal').hidden=true);
+</script>
 </body>
 </html>
