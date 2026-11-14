@@ -269,6 +269,7 @@ let generoAtual = null;
 
 const radio = document.getElementById('playerRadio');
 const STREAM_AO_VIVO = 'https://radiosuavez.duckdns.org/listen/r%C3%A1dio_sua_vez/radio.mp3';
+const AZURACAST_AGORA = 'https://radiosuavez.duckdns.org/api/nowplaying/1';
 const previaMusica = new Audio();
 previaMusica.preload = 'none';
 
@@ -282,14 +283,38 @@ const buscaGenero = document.getElementById('buscaGenero');
 const contagemGenero = document.getElementById('contagemGenero');
 const generosBotoes = document.querySelectorAll('[data-genero]');
 function normalizar(valor) {return String(valor||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
-function informarRadio(m) {
-  document.getElementById('tituloMusica').textContent = m ? m.titulo : 'Aguardando música aprovada...';
-  document.getElementById('artistaRadio').textContent = m ? '🎤 ' + m.artista : '🎤 Aguardando artista...';
-  document.getElementById('radioTocando').textContent = m ? '🎵 Tocando: ' + m.titulo + ' — ' + m.artista : 'Aguardando reprodução...';
-  const capa = document.getElementById('capaMusica');
-  if (m && m.capa) {capa.src=m.capa;capa.style.display='inline-block';}
-  else {capa.removeAttribute('src');capa.style.display='none';}
+// Consulta a faixa realmente transmitida pelo AzuraCast, não a prévia dos estilos.
+let ultimaFaixaAoVivo = '';
+let consultandoAoVivo = false;
+async function atualizarTocandoAoVivo(){
+  if(consultandoAoVivo)return;
+  consultandoAoVivo=true;
+  try{
+    const resposta=await fetch(AZURACAST_AGORA,{cache:'no-store'});
+    if(!resposta.ok)throw new Error('HTTP '+resposta.status);
+    const dados=await resposta.json();
+    const atual=dados.now_playing?.song;
+    if(!atual)return;
+    const titulo=String(atual.title||'').trim();
+    const artista=String(atual.artist||'').trim();
+    const identificador=String(atual.id||'')+'|'+titulo+'|'+artista;
+    if(identificador===ultimaFaixaAoVivo)return;
+    ultimaFaixaAoVivo=identificador;
+    document.getElementById('tituloMusica').textContent=titulo||'Rádio Sua Vez — AO VIVO';
+    document.getElementById('artistaRadio').textContent=artista?'🎤 '+artista:'🎙️ Transmissão oficial';
+    document.getElementById('radioTocando').textContent='🔴 Ao vivo: '+(titulo||'Rádio Sua Vez')+(artista?' — '+artista:'');
+    const capa=document.getElementById('capaMusica');
+    const cadastro=musicas.find(m=>normalizar(m.titulo)===normalizar(titulo)&&normalizar(m.artista)===normalizar(artista));
+    const urlCapa=cadastro?.capa||atual.art||'';
+    if(urlCapa&&/^https:\/\//i.test(urlCapa)){
+      capa.onerror=()=>{if(capa.src!==atual.art&&/^https:\/\//i.test(atual.art||'')){capa.src=atual.art;}else{capa.style.display='none';}};
+      capa.src=urlCapa;
+      capa.style.display='inline-block';
+    }else{capa.removeAttribute('src');capa.style.display='none';}
+  }catch(e){console.warn('Não foi possível atualizar os dados da música ao vivo:',e.message);}
+  finally{consultandoAoVivo=false;}
 }
+
 // ATENÇÃO: a tabela publica musicas deve conter somente faixas liberadas para veiculacao apos pagamento.
 async function carregarMusicas() {
   if (carregamentoEmAndamento) return carregamentoEmAndamento;
@@ -364,12 +389,8 @@ async function tocarRadio() {
     radio.src=STREAM_AO_VIVO;
     radio.load();
   }
-  document.getElementById('tituloMusica').textContent='Rádio Sua Vez — AO VIVO';
-  document.getElementById('artistaRadio').textContent='🎙️ Transmissão oficial do AzuraCast';
-  document.getElementById('radioTocando').textContent='🔴 Você está ouvindo a transmissão ao vivo.';
-  const capa=document.getElementById('capaMusica');
-  capa.removeAttribute('src');capa.style.display='none';
-  aviso.textContent='Conectando à transmissão ao vivo...';
+     atualizarTocandoAoVivo();
+aviso.textContent='Conectando à transmissão ao vivo...';
   try {await radio.play();aviso.textContent='🔴 Rádio Sua Vez ao vivo';}
   catch(e) {aviso.textContent='Clique no ▶ do player abaixo para iniciar a transmissão.';}
 }
@@ -846,6 +867,8 @@ async function restaurarSessaoArtista(){
 restaurarSessaoArtista();
 carregarMusicas();
 setInterval(carregarMusicas,60000);
+atualizarTocandoAoVivo();
+setInterval(atualizarTocandoAoVivo,12000);
 </script>
   
 <style>
