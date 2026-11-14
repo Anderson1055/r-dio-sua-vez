@@ -36,9 +36,9 @@
 <main id="areaAdmin" hidden>
 <section class="card"><h2>🎵 Adicionar música</h2>
 <form id="formAdicionar"><label for="nomeMusica">Nome da música</label><input id="nomeMusica" type="text" placeholder="Ex.: Meu Girassol" required maxlength="200"><label for="nomeArtista">Nome do artista</label><input id="nomeArtista" type="text" placeholder="Ex.: Anderson Picoloto" required maxlength="200"><label for="arquivoMp3">Arquivo MP3</label><input id="arquivoMp3" type="file" accept="audio/mpeg,.mp3" required><label for="arquivoCapa">Capa da música</label><input id="arquivoCapa" type="file" accept="image/png,image/jpeg,image/webp" required><button type="submit" id="btnAdicionarMusica">Adicionar música</button></form><p><small>Músicas cadastradas pelo administrador entram aprovadas, sem cobrança. Você decide quando liberar para a programação da rádio.</small></p></section>
-<section class="card" id="secaoEnvios"><h2>📨 Envios dos artistas para análise</h2><p class="muted">Os envios desta seção vêm da tabela <code>envios_artistas</code>. A aprovação aqui não coloca a música automaticamente no ar nem solicita pagamento.</p><button type="button" id="btnAtualizarEnvios">🔄 Atualizar envios dos artistas</button><p id="mensagemEnvios" role="status"></p><div id="listaEnviosArtistas" class="lista-rolagem" aria-label="Envios dos artistas"></div></section>
-<section class="card" id="secaoContratacoes"><h2>💳 Contratações de divulgação — testes</h2><p class="muted">Pedidos registrados no Supabase. Esta área trabalha somente com confirmações simuladas; não gera Pix nem coloca músicas na programação.</p><button type="button" id="btnAtualizarContratacoes">🔄 Atualizar contratações</button><p id="mensagemContratacoes" role="status"></p><div id="listaContratacoes" aria-label="Contratações registradas"></div></section>
-<section class="card"><h2>🎵 Biblioteca de músicas</h2><p class="ok"><strong>🔎 Pesquisa, rolagem e múltiplos estilos — versão categorias</strong></p><button type="button" id="btnListarMusicas">🔄 Atualizar lista de músicas</button><p id="mensagemPainel" role="status"></p>
+<section class="card" id="secaoEnvios"><h2>📨 Painel 1 — Envios dos artistas para análise</h2><p class="muted">Os envios desta seção vêm da tabela <code>envios_artistas</code>. A aprovação aqui não coloca a música automaticamente no ar nem solicita pagamento.</p><button type="button" id="btnAtualizarEnvios">🔄 Atualizar envios dos artistas</button><p id="mensagemEnvios" role="status"></p><div id="listaEnviosArtistas" class="lista-rolagem" aria-label="Envios dos artistas"></div></section>
+<section class="card" id="secaoContratacoes"><h2>💳 Painel 2 — Aguardando plano e Pix</h2><p class="muted">Músicas aprovadas na análise ficam aqui, fora da biblioteca. Pedidos de teste não são comprovantes de Pix. A liberação real será implementada na próxima etapa, no servidor.</p><h3>🎶 Aprovadas aguardando contratação ou pagamento</h3><div id="listaAguardandoPix" class="lista-rolagem" aria-label="Músicas aguardando plano ou Pix"></div><h3>📋 Contratações registradas</h3><button type="button" id="btnAtualizarContratacoes">🔄 Atualizar contratações</button><p id="mensagemContratacoes" role="status"></p><div id="listaContratacoes" aria-label="Contratações registradas"></div></section>
+<section class="card"><h2>🎵 Painel 3 — Biblioteca de músicas liberadas</h2><p class="muted">Somente músicas cadastradas diretamente pelo administrador ou artistas com liberação validada pelo servidor devem aparecer aqui. A confirmação do Pix ainda será integrada.</p><button type="button" id="btnListarMusicas">🔄 Atualizar lista de músicas</button><p id="mensagemPainel" role="status"></p>
 <details open><summary>🕒 Aguardando aprovação (<span id="qtdPendentes">0</span>)</summary><label for="busca-aguardando">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-aguardando" data-categoria="aguardando" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-aguardando" aria-live="polite"></p><div id="listaMusicas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
 <details><summary>✅ Músicas aprovadas (<span id="qtdAprovadas">0</span>)</summary><label for="busca-aprovada">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-aprovada" data-categoria="aprovada" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-aprovada" aria-live="polite"></p><div id="listaAprovadas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
 <details><summary>❌ Músicas rejeitadas (<span id="qtdRejeitadas">0</span>)</summary><label for="busca-rejeitada">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-rejeitada" data-categoria="rejeitada" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-rejeitada" aria-live="polite"></p><div id="listaRejeitadas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
@@ -252,42 +252,10 @@ async function listarMusicas(){
   const quantidades={aguardando:0,aprovada:0,rejeitada:0,lixeira:0};
   for(const m of registros){const e=estado(m);el(destinos[e]).appendChild(montarMusica(m));quantidades[e]++;}
   for(const e of Object.keys(destinos)){el(contadores[e]).textContent=quantidades[e];if(!quantidades[e]){const p=document.createElement('p');p.className='muted';p.textContent='Nenhuma música nesta categoria.';el(destinos[e]).appendChild(p);}}
-  // Envios aprovados aparecem também na biblioteca, apenas para consulta.
-  // Não são inseridos em 'musicas' e não entram na programação.
-  let totalEnvios=0;
-  let avisoEnvios='';
-  try{
-   const {data:envios,error:erroEnvios}=await client.from('envios_artistas')
-     .select('*').eq('status','aprovada').limit(500);
-   if(erroEnvios)throw erroEnvios;
-   const destino=el('listaAprovadas');
-   const idsJaMostrados=new Set();
-   for(const envio of envios||[]){
-    const titulo=String(envio.titulo||envio.nome_musica||'Sem título');
-    const artista=String(envio.artista||envio.nome_artista||'Artista não informado');
-    const chave=normalizarBusca(titulo+'|'+artista);
-    if(idsJaMostrados.has(chave))continue;
-    idsJaMostrados.add(chave);
-    const item=document.createElement('div');
-    item.className='musica';
-    item.dataset.busca=titulo+' '+artista;
-    const nome=document.createElement('strong');
-    nome.textContent='🎵 '+titulo+' — '+artista;
-    const nota=document.createElement('p');
-    nota.className='aviso';
-    nota.textContent='Aprovada no envio do artista • ainda não liberada para transmissão. Consulte a seção Envios dos artistas para administrar.';
-    item.append(nome,nota);
-    destino.appendChild(item);
-    totalEnvios++;
-   }
-   if(totalEnvios){
-    const vazio=destino.querySelector('p.muted');
-    if(quantidades.aprovada===0 && vazio && vazio.textContent==='Nenhuma música nesta categoria.')vazio.remove();
-    el('qtdAprovadas').textContent=quantidades.aprovada+totalEnvios;
-   }
-  }catch(e){avisoEnvios=' Não foi possível consultar os envios dos artistas: '+e.message;}
+  // Nunca misturar envios em análise ou aguardando Pix com a biblioteca.
+  // Os envios permanecem em envios_artistas até a liberação segura no backend.
   aplicarBusca();
-  mensagem('Lista atualizada: '+registros.length+' cadastro(s) na biblioteca e '+totalEnvios+' envio(s) aprovado(s) exibido(s).'+avisoEnvios,avisoEnvios?'aviso':'ok');
+  mensagem('Biblioteca atualizada: '+registros.length+' cadastro(s). Envios de artistas aguardando pagamento ficam no Painel 2.','ok');
  }catch(e){mensagem('Erro ao carregar músicas: '+e.message,'erro');}finally{carregando=false;el('btnListarMusicas').disabled=false;}
 }
 // Só remove arquivos que seguem o padrão criado pelo formulário desta rádio.
@@ -375,6 +343,21 @@ async function listarEnviosArtistas(){
   }
   const pendentes=registros.filter(m=>['pendente','aguardando','em análise','em analise',''].includes(String(m.status||'').toLowerCase().trim()));
   const outros=registros.filter(m=>!pendentes.includes(m));
+  const aguardandoPix=el('listaAguardandoPix');aguardandoPix.replaceChildren();
+  const aprovados=registros.filter(m=>String(m.status||'').toLowerCase().trim()==='aprovada');
+  const {data:contratos,error:erroContratos}=await client.from('contratacoes_divulgacao').select('envio_id,status,plano,criado_em').order('criado_em',{ascending:false}).limit(500);
+  if(erroContratos)throw erroContratos;
+  const ultimoContrato=new Map();for(const c of contratos||[]){if(!ultimoContrato.has(String(c.envio_id)))ultimoContrato.set(String(c.envio_id),c);}
+  for(const m of aprovados){
+   const card=document.createElement('div');card.className='musica';
+   const pedido=ultimoContrato.get(String(m.id));
+   adicionarTexto(card,'Música',textoEnvio(m,['titulo','nome_musica']));
+   adicionarTexto(card,'Artista',textoEnvio(m,['artista','nome_artista']));
+   adicionarTexto(card,'Etapa',pedido?'Plano '+(pedido.plano||'não informado')+' — '+pedido.status:'Aguardando o artista escolher o plano');
+   const alerta=document.createElement('p');alerta.className='aviso';alerta.textContent='🔒 Fora da biblioteca e do AzuraCast. Pagamento real ainda não integrado.';card.appendChild(alerta);
+   aguardandoPix.appendChild(card);
+  }
+  if(!aprovados.length){const p=document.createElement('p');p.className='muted';p.textContent='Nenhuma música aprovada aguardando plano ou Pix.';aguardandoPix.appendChild(p);}
   for(const m of [...pendentes,...outros]){
    const card=document.createElement('div');card.className='musica';
    const titulo=textoEnvio(m,['titulo','nome_musica','musica','titulo_musica'],'Música sem título');
