@@ -43,9 +43,9 @@
 <details><summary>✅ Músicas aprovadas (<span id="qtdAprovadas">0</span>)</summary><label for="busca-aprovada">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-aprovada" data-categoria="aprovada" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-aprovada" aria-live="polite"></p><div id="listaAprovadas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
 <details><summary>❌ Músicas rejeitadas (<span id="qtdRejeitadas">0</span>)</summary><label for="busca-rejeitada">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-rejeitada" data-categoria="rejeitada" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-rejeitada" aria-live="polite"></p><div id="listaRejeitadas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
 <details><summary>🗑️ Lixeira (<span id="qtdLixeira">0</span>)</summary><label for="busca-lixeira">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-lixeira" data-categoria="lixeira" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-lixeira" aria-live="polite"></p><div id="listaLixeira" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div><button type="button" id="btnEsvaziarLixeira" disabled>🧹 Esvaziar lixeira</button><p class="muted"><small>A exclusão definitiva não pode ser desfeita.</small></p></details>
-<p class="muted"><small>Os botões alteram o cadastro existente, sem criar cópias. Mover para a lixeira não apaga o MP3 do armazenamento.</small></p>
+<p class="muted"><small>Os botões alteram o cadastro existente, sem criar cópias. Mover para a lixeira não apaga o MP3 do armazenamento nem o arquivo já enviado ao AzuraCast. Retire a música da rádio antes de excluí-la.</small></p>
 </section>
-<section class="card" id="secaoAzuraCast"><h2>📻 Controle da Rádio — AzuraCast</h2><p class="muted">Consulta segura do estado da transmissão. Não altera músicas, pagamentos ou programação.</p><button type="button" id="btnStatusAzuraCast">🔄 Consultar estado da rádio</button><p id="statusAzuraCast" class="muted" role="status" aria-live="polite">Clique no botão para testar a comunicação com o servidor.</p></section>
+<section class="card" id="secaoAzuraCast"><h2>📻 Controle da Rádio — AzuraCast</h2><p class="muted">Consulta o estado da transmissão. Os botões das músicas precisam de integração com a função do servidor.</p><button type="button" id="btnStatusAzuraCast">🔄 Consultar estado da rádio</button><p id="statusAzuraCast" class="muted" role="status" aria-live="polite">Clique no botão para testar a comunicação com o servidor.</p></section>
 <section class="card"><h2>🔐 Segurança</h2><p>Gerenciamento disponível somente para a conta administrativa autorizada. As permissões também precisam estar protegidas pelas políticas RLS do Supabase.</p><button type="button" id="btnSairAdmin">🚪 Sair da administração</button></section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -140,27 +140,33 @@ async function mudarMusica(m,acao){
  }catch(e){mensagem('Erro ao alterar música: '+e.message,'erro');alert('Não foi possível alterar: '+e.message);operando=false;return;}
  operando=false;await listarMusicas();
 }
-// Liberação administrativa: altera somente a autorização no banco.
-// O envio ao AzuraCast será implementado em uma etapa separada, no servidor.
-async function alternarLiberacaoRadio(m){
+// Controle real da playlist: requer ações ativar_musica e retirar_musica na Edge Function.
+// Não atualiza o banco isoladamente: evita mostrar um estado falso da rádio.
+async function controlarProgramacao(m, ativar, aviso){
  if(operando)return;
- if(!(await adminAutorizado())){alert('Acesso não autorizado.');return;}
- if(m.origem!=='administrador'){alert('Esta ação é exclusiva das músicas cadastradas pelo administrador.');return;}
- if(estado(m)!=='aprovada'){alert('A música precisa estar aprovada.');return;}
- const liberar=!m.liberada_radio;
- if(liberar&&(!m.arquivo_url||!m.capa_url)){alert('É necessário ter MP3 e capa cadastrados antes de liberar.');return;}
- if(!confirm((liberar?'Liberar':'Retirar da programação')+' “'+m.titulo+'”?\nEsta ação ainda não envia o áudio ao AzuraCast.'))return;
- operando=true;
+ if(!(await adminAutorizado())){alert('Sessão administrativa expirada. Entre novamente.');return;}
+ if(m.origem!=='administrador'||estado(m)!=='aprovada'){alert('Ação exclusiva de músicas aprovadas do administrador.');return;}
+ if(ativar&&(!m.arquivo_url||!m.capa_url)){alert('Cadastre MP3 e capa antes de ativar.');return;}
+ const acao=ativar?'ativar_musica':'retirar_musica';
+ const descricao=ativar?'ATIVAR':'RETIRAR';
+ if(!confirm(descricao+' “'+m.titulo+'” na programação do AzuraCast?\nO arquivo MP3 será preservado.'))return;
+ operando=true;aviso.className='aviso';aviso.textContent='Aguardando confirmação do servidor...';
  try{
-  const {data,error}=await client.from('musicas')
-   .update({liberada_radio:liberar})
-   .eq('id',m.id).eq('origem','administrador')
-   .select('id,liberada_radio');
-  if(error)throw error;
-  if(data?.length!==1)throw new Error('O Supabase não confirmou a alteração. Verifique as políticas RLS.');
-  mensagem(liberar?'Música autorizada no banco. O envio ao AzuraCast ainda será configurado.':'Liberação retirada no banco.','ok');
- }catch(e){mensagem('Erro ao alterar liberação: '+e.message,'erro');alert(e.message);}
- finally{operando=false;await listarMusicas();}
+  const {data,error}=await client.functions.invoke('radio-azuracast',{body:{acao,musica_id:Number(m.id)}});
+  if(error){
+   let detalhe=error.message||'Erro ao consultar servidor.';
+   if(error.context&&typeof error.context.json==='function'){
+    try{const resposta=await error.context.json();detalhe=resposta.erro||resposta.error||detalhe;}catch{}
+   }
+   throw new Error(detalhe);
+  }
+  if(data?.sucesso!==true)throw new Error(data?.erro||'O servidor não confirmou a alteração da playlist.');
+  aviso.className='ok';aviso.textContent=data.mensagem||'Programação alterada no AzuraCast.';
+  mensagem('Programação atualizada: '+m.titulo,'ok');
+ }catch(e){
+  aviso.className='erro';aviso.textContent='Não foi possível alterar a programação: '+e.message;
+  mensagem('A rádio não foi confirmada como alterada. '+e.message,'erro');
+ }finally{operando=false;await listarMusicas();}
 }
 // Envia somente músicas do administrador aprovadas e liberadas.
 // O servidor valida novamente os requisitos antes de aceitar o áudio.
@@ -207,9 +213,10 @@ function montarMusica(m){
  const acoes=document.createElement('div');acoes.className='acoes';const e=estado(m);
  if(m.origem==='administrador'&&e==='aprovada'){
   const aviso=document.createElement('p');aviso.className=m.liberada_radio?'ok':'aviso';
-  aviso.textContent=m.liberada_radio?'📻 Autorizada no banco (integração com AzuraCast pendente)':'📻 Ainda não liberada para a rádio';
+  aviso.textContent=m.liberada_radio?'📻 Liberação registrada no banco; confirme a playlist no AzuraCast.':'📻 Sem liberação registrada no banco.';
   conteudo.appendChild(aviso);
-  acoes.appendChild(criarBotao(m.liberada_radio?'⏸️ Retirar liberação':'📻 Liberar na rádio',()=>alternarLiberacaoRadio(m)));
+  acoes.appendChild(criarBotao('▶️ Ativar na rádio',()=>controlarProgramacao(m,true,aviso)));
+  acoes.appendChild(criarBotao('⏸️ Retirar da rádio',()=>controlarProgramacao(m,false,aviso)));
   if(m.liberada_radio===true){
    const enviar=criarBotao('📤 Enviar ao AzuraCast',()=>enviarMusicaAzuraCast(m,enviar,aviso));
    acoes.appendChild(enviar);
