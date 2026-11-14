@@ -85,7 +85,7 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 
 <div id="radioAoVivo">
   <h3>📻 Tocando na Rádio Sua Vez</h3>
-  <p id="radioTocando">Aguardando reprodução...</p>
+  <p id="radioTocando">Clique em Ouvir ao vivo para sintonizar.</p>
   
 </div>
 
@@ -210,9 +210,9 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
   <div style="text-align:center;padding:20px;background:linear-gradient(135deg,#17264a,#392044);border-radius:16px">
   <img id="capaMusica" alt="Capa da música atual" style="width:220px;max-width:100%;border-radius:15px;display:none;">
     
-<h2 id="tituloMusica" style="margin:10px 0">Aguardando música aprovada...</h2>
+<h2 id="tituloMusica" style="margin:10px 0">Rádio Sua Vez — AO VIVO</h2>
   
-    <p id="artistaRadio">🎤 Aguardando artista...</p>
+    <p id="artistaRadio">🎙️ Transmissão oficial</p>
     <p style="color:#ffda59">Rádio Sua Vez</p>
    <audio id="playerRadio" controls style="width:100%">
       Seu navegador não suporta áudio.
@@ -268,6 +268,9 @@ const faixasGenero = document.getElementById('faixasGenero');
 let generoAtual = null;
 
 const radio = document.getElementById('playerRadio');
+const STREAM_AO_VIVO = 'https://radiosuavez.duckdns.org/listen/r%C3%A1dio_sua_vez/radio.mp3';
+const previaMusica = new Audio();
+previaMusica.preload = 'none';
 
 const aviso = document.getElementById('aviso');
 let musicas = [];
@@ -299,7 +302,7 @@ async function carregarMusicas() {
       musicas = dados.filter(m=>m.arquivo_url && !['rejeitada','rejeitado','aguardando','pendente'].includes(normalizar(m.status)))
         .map(m=>({id:m.id,titulo:m.titulo||'Sem título',artista:m.artista||'Artista não informado',arquivo:m.arquivo_url,capa:m.capa_url,generos:Array.isArray(m.estilos) && m.estilos.length ? m.estilos : [m.genero||m.estilo||m.estilo_musical||''].filter(Boolean)}));
       if (tocandoId !== null && !musicas.some(m=>String(m.id)===String(tocandoId))) {
-        radio.pause();radio.removeAttribute('src');radio.load();tocandoId=null;modoRadio=false;informarRadio(null);
+        previaMusica.pause();previaMusica.removeAttribute('src');tocandoId=null;
       }
       if (generoAtual) renderizarGenero();
       aviso.textContent=musicas.length?'':'Ainda não há músicas aprovadas disponíveis.';
@@ -338,35 +341,50 @@ function renderizarGenero() {
   });
   faixasGenero.append(fragmento);
 }
-async function selecionarMusica(m,automatica) {
+// A lista de estilos serve somente para prévia individual, sem alterar a transmissão ao vivo.
+async function selecionarMusica(m,automatica=false) {
   if(!m?.arquivo)return;
-  radio.pause();modoRadio=automatica;tocandoId=m.id;
-  radio.src=m.arquivo;radio.dataset.musicaId=String(m.id);
-  informarRadio(m);if(generoAtual)renderizarGenero();
-  try {await radio.play();aviso.textContent='';}
-  catch(e) {aviso.textContent='Clique no play do player para ouvir a música.';}
-  document.getElementById('playerRadio').scrollIntoView({behavior:'smooth',block:'center'});
+  radio.pause(); // Evita dois áudios simultâneos no navegador.
+  previaMusica.pause();
+  tocandoId=m.id;
+  previaMusica.src=m.arquivo;
+  if(generoAtual)renderizarGenero();
+  aviso.textContent='Prévia individual: '+m.titulo+'. Para voltar à rádio, clique em Ouvir ao vivo.';
+  try {await previaMusica.play();}
+  catch(e) {aviso.textContent='Não foi possível reproduzir a prévia desta música.';}
 }
+
+// Todos os ouvintes recebem o mesmo fluxo contínuo do AzuraCast.
 async function tocarRadio() {
-  const ok=await carregarMusicas();if(!ok)return;
-  if(!musicas.length){aviso.textContent='Ainda não há músicas aprovadas para tocar.';return;}
-  const atual=musicas.findIndex(m=>String(m.id)===String(tocandoId));
-  indiceRadio=atual>=0?atual:0;
-  await selecionarMusica(musicas[indiceRadio],true);
+  previaMusica.pause();
+  tocandoId=null;
+  modoRadio=true;
+  if(generoAtual)renderizarGenero();
+  if(radio.getAttribute('src')!==STREAM_AO_VIVO){
+    radio.src=STREAM_AO_VIVO;
+    radio.load();
+  }
+  document.getElementById('tituloMusica').textContent='Rádio Sua Vez — AO VIVO';
+  document.getElementById('artistaRadio').textContent='🎙️ Transmissão oficial do AzuraCast';
+  document.getElementById('radioTocando').textContent='🔴 Você está ouvindo a transmissão ao vivo.';
+  const capa=document.getElementById('capaMusica');
+  capa.removeAttribute('src');capa.style.display='none';
+  aviso.textContent='Conectando à transmissão ao vivo...';
+  try {await radio.play();aviso.textContent='🔴 Rádio Sua Vez ao vivo';}
+  catch(e) {aviso.textContent='Clique no ▶ do player abaixo para iniciar a transmissão.';}
 }
+
 generosBotoes.forEach(b=>b.addEventListener('click',()=>mostrarGenero(b.dataset.genero)));
 buscaGenero.addEventListener('input',renderizarGenero);
 document.getElementById('fecharGenero').addEventListener('click',()=>{
   generoAtual=null;painelGenero.hidden=true;generosBotoes.forEach(b=>b.setAttribute('aria-pressed','false'));
 });
-radio.addEventListener('ended',()=>{
-  if(!modoRadio||!musicas.length)return;
-  const pos=musicas.findIndex(m=>String(m.id)===String(tocandoId));
-  indiceRadio=(pos+1)%musicas.length;selecionarMusica(musicas[indiceRadio],true);
-});
+// Não avançar músicas automaticamente: a programação é controlada pelo AzuraCast.
+radio.addEventListener('error',()=>{if(modoRadio)aviso.textContent='Não foi possível conectar ao AzuraCast. Tente novamente.';});
 document.getElementById('btnSairRadio').addEventListener('click',()=>{
   modoRadio=false;
-  document.querySelectorAll('audio').forEach(a=>{a.pause();a.currentTime=0;});
+  previaMusica.pause();
+  document.querySelectorAll('audio').forEach(a=>{a.pause();try{a.currentTime=0;}catch(e){}});
   mostrarDespedidaRadio();
 });
 document.getElementById('btnContinuarOuvindo').addEventListener('click',()=>{
