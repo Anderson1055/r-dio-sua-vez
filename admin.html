@@ -20,6 +20,8 @@
 .estilos-grade label{display:flex;align-items:center;gap:7px;background:#26334c;border-radius:7px;padding:9px;font-size:13px;cursor:pointer}
 .estilos-grade input{width:auto;margin:0;accent-color:#ffbd35}
 .estilos-painel button{margin-top:12px}.estilos-resumo{font-size:12px;color:#a8f0be;margin:6px 0}
+/* Controle AzuraCast */
+#statusAzuraCast{white-space:pre-wrap;overflow-wrap:anywhere}
 /* Contratações de teste */
 .pedido-card{padding:15px;border:1px solid #44516a;border-radius:12px;margin:12px 0;background:#1b2438;overflow-wrap:anywhere}
 .pedido-card p{margin:7px 0}.pedido-card button{margin-top:10px}.checagem-pedido{border-left:3px solid #ffbd35;padding:8px 12px;margin-top:12px;background:#222d46;border-radius:5px}
@@ -43,6 +45,7 @@
 <details><summary>🗑️ Lixeira (<span id="qtdLixeira">0</span>)</summary><label for="busca-lixeira">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-lixeira" data-categoria="lixeira" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-lixeira" aria-live="polite"></p><div id="listaLixeira" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div><button type="button" id="btnEsvaziarLixeira" disabled>🧹 Esvaziar lixeira</button><p class="muted"><small>A exclusão definitiva não pode ser desfeita.</small></p></details>
 <p class="muted"><small>Os botões alteram o cadastro existente, sem criar cópias. Mover para a lixeira não apaga o MP3 do armazenamento.</small></p>
 </section>
+<section class="card" id="secaoAzuraCast"><h2>📻 Controle da Rádio — AzuraCast</h2><p class="muted">Consulta segura do estado da transmissão. Não altera músicas, pagamentos ou programação.</p><button type="button" id="btnStatusAzuraCast">🔄 Consultar estado da rádio</button><p id="statusAzuraCast" class="muted" role="status" aria-live="polite">Clique no botão para testar a comunicação com o servidor.</p></section>
 <section class="card"><h2>🔐 Segurança</h2><p>Gerenciamento disponível somente para a conta administrativa autorizada. As permissões também precisam estar protegidas pelas políticas RLS do Supabase.</p><button type="button" id="btnSairAdmin">🚪 Sair da administração</button></section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -439,6 +442,28 @@ async function listarContratacoes(){
  }catch(e){aviso.className='erro';aviso.textContent='Erro ao carregar contratações: '+e.message;}
  finally{carregandoContratacoes=false;botao.disabled=false;}
 }
+// A função Edge deve validar a sessão e as permissões também no servidor.
+// Este botão consulta o estado, sem executar ações de transmissão.
+el('btnStatusAzuraCast').addEventListener('click',async()=>{
+ const botao=el('btnStatusAzuraCast');
+ const aviso=el('statusAzuraCast');
+ botao.disabled=true;aviso.className='muted';aviso.textContent='Consultando o AzuraCast...';
+ try{
+  if(!(await adminAutorizado()))throw new Error('Sessão administrativa não autorizada. Entre novamente.');
+  const {data,error}=await client.functions.invoke('radio-azuracast',{body:{acao:'status'}});
+  if(error){
+   let detalhe=error.message||'Erro na chamada da função.';
+   if(error.context && typeof error.context.json==='function'){
+    try{const resposta=await error.context.json();detalhe+= ' — '+JSON.stringify(resposta);}catch{}
+   }
+   throw new Error(detalhe);
+  }
+  aviso.className='ok';
+  aviso.textContent='Resposta da função radio-azuracast:\n'+JSON.stringify(data??{},null,2);
+ }catch(e){aviso.className='erro';aviso.textContent='Não foi possível consultar a rádio: '+e.message+'\nA transmissão não foi alterada.';}
+ finally{botao.disabled=false;}
+});
+
 el('btnAtualizarContratacoes').addEventListener('click',listarContratacoes);
 
 el('btnAtualizarEnvios').addEventListener('click',listarEnviosArtistas);
