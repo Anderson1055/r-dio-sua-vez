@@ -659,7 +659,7 @@ formArtista.addEventListener('submit',async e=>{
 });
 document.getElementById('sairArtista').addEventListener('click',async()=>{
   try{if(sessaoArtista?.access_token)await requisicaoAuth('/logout',{},sessaoArtista.access_token);}catch(e){console.warn('Falha ao encerrar sessão no servidor',e);}
-  exibirSessaoArtista(null);formArtista.reset();trocarAbaArtista(false);mensagemArtista.textContent='Você saiu da conta.';
+  contratosPendentesPix=[];exibirSessaoArtista(null);formArtista.reset();trocarAbaArtista(false);mensagemArtista.textContent='Você saiu da conta.';
 });
 
 
@@ -674,6 +674,11 @@ const PLANOS_DIVULGACAO = Object.freeze([
 ]);
 const tabelaContratacoes = supabaseUrl + '/rest/v1/contratacoes_divulgacao';
 const funcaoPix = supabaseUrl + '/functions/v1/mercadopago-pix';
+const funcaoVerificarPix = supabaseUrl + '/functions/v1/verificar-pagamento-pix';
+let contratosPendentesPix = [];
+let verificacaoPixEmAndamento = false;
+let ultimaFalhaPix = '';
+
 const escolhasPlanos = new Map();
 const moedaBR = valor => valor.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 function atualizarResumoPlanos(){
@@ -726,6 +731,45 @@ async function urlCapaPrivada(caminho){
   const d=await apiArtista(bucketEnvios+'/sign/'+bucketCapas+'/'+caminho,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expiresIn:600})});
   return supabaseUrl+'/storage/v1'+d.signedURL;
 }
+// Confirmação real pelo servidor. Nunca confiar apenas no comprovante ou na tela do navegador.
+async function consultarConfirmacaoPix(contratacaoId){
+  const dados=await apiArtista(funcaoVerificarPix,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contratacao_id:contratacaoId})
+  });
+  return dados;
+}
+async function verificarPixPendentes(){
+  if(verificacaoPixEmAndamento || !sessaoArtista?.access_token || !contratosPendentesPix.length || document.hidden)return;
+  verificacaoPixEmAndamento=true;
+  try{
+    for(const id of [...contratosPendentesPix]){
+      if(!sessaoArtista?.access_token)break;
+      try{
+        const resultado=await consultarConfirmacaoPix(id);
+        if(resultado.confirmado===true){
+          contratosPendentesPix=contratosPendentesPix.filter(item=>item!==id);
+          const mensagem='✅ Pagamento efetuado com sucesso! Recebemos seu pagamento via Pix. Sua música será incluída na programação durante nosso horário de atendimento. Obrigado pela confiança!';
+          const avisoModal=document.getElementById('mensagemPixReal');
+          avisoModal.textContent=mensagem;
+          avisoModal.style.color='#8ef0ac';
+          document.getElementById('mensagemArtista').textContent=mensagem;
+          ultimaFalhaPix='';
+          await carregarMeusEnvios();
+        }
+      }catch(erro){
+        // Falhas temporárias não significam pagamento recusado.
+        if(ultimaFalhaPix!==erro.message){
+          console.warn('Verificação Pix indisponível:',erro.message);
+          ultimaFalhaPix=erro.message;
+        }
+      }
+    }
+  }finally{verificacaoPixEmAndamento=false;}
+}
+setInterval(verificarPixPendentes,15000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)verificarPixPendentes();});
 async function executarGeracaoPix(contratacaoId,botao){
   const textoAnterior=botao.textContent;botao.disabled=true;botao.textContent='Gerando Pix...';
   try{
@@ -746,7 +790,10 @@ async function executarGeracaoPix(contratacaoId,botao){
     const link=document.getElementById('linkPixReal');
     if(d.ticket_url&&/^https:\/\//i.test(d.ticket_url)){link.href=d.ticket_url;link.hidden=false;}
     else{link.hidden=true;link.removeAttribute('href');}
+    document.getElementById('mensagemPixReal').style.color='';
     document.getElementById('mensagemPixReal').textContent='Pix gerado. Aguardando pagamento e confirmação automática pelo Mercado Pago.';
+    if(!contratosPendentesPix.includes(contratacaoId))contratosPendentesPix.push(contratacaoId);
+    verificarPixPendentes();
     modal.hidden=false;
   }catch(e){
     alert('Não foi possível gerar o Pix: '+(e.name==='AbortError'?'Tempo limite excedido. Verifique o pagamento antes de tentar novamente.':e.message));
@@ -763,6 +810,9 @@ async function carregarMeusEnvios(){
      const contratos=await apiArtista(tabelaContratacoes+'?select=id,envio_id,plano,status,pagamento_id&usuario_id=eq.'+encodeURIComponent(sessaoArtista.user.id)+'&order=criado_em.desc&limit=200');
       escolhasPlanos.clear();atualizarResumoPlanos();
      const porEnvio=new Map(contratos.map(c=>[String(c.envio_id),c]));
+     contratosPendentesPix=contratos.filter(c=>c.status==='aguardando_pagamento' && c.pagamento_id).map(c=>c.id);
+     // Ao entrar na Área do Artista, conferir também pagamentos anteriores.
+     if(contratosPendentesPix.length)setTimeout(verificarPixPendentes,100);
     dados.forEach(m=>{
       const div=document.createElement('div');div.className='envio-item';
       div.innerHTML='<strong>'+escaparHtml(m.titulo)+'</strong><p>'+escaparHtml(m.artista)+' — '+escaparHtml(m.genero)+'</p><p class="status-envio">Situação: '+escaparHtml(m.status)+'</p>'+(m.observacao_admin?'<p>Observação: '+escaparHtml(m.observacao_admin)+'</p>':'')+'<p class="envio-ajuda">'+new Date(m.criado_em).toLocaleString('pt-BR')+'</p>';
@@ -774,13 +824,18 @@ async function carregarMeusEnvios(){
          const p=document.createElement('p');p.className='plano-aviso';
          p.textContent='📣 Plano: '+(plano?plano.nome+' — '+plano.preco:contrato.plano)+' | Situação: '+contrato.status;
          div.append(p);
+         if(contrato.status==='pago'){
+           const confirmado=document.createElement('p');confirmado.className='seguranca-artista';confirmado.textContent='✅ Pagamento efetuado com sucesso! Sua música aguarda liberação durante o horário de atendimento da rádio.';div.append(confirmado);
+         }
          if(contrato.status==='aguardando_pagamento'){
            if(!contrato.pagamento_id){
              const gerar=document.createElement('button');gerar.type='button';gerar.textContent='💠 Gerar Pix real';
              gerar.addEventListener('click',()=>executarGeracaoPix(contrato.id,gerar));div.append(gerar);
            }else{
              const aviso=document.createElement('p');aviso.className='plano-aviso';
-             aviso.textContent='Pix já criado. Se perdeu o código, não gere outra contratação; consulte o suporte para recuperar o pagamento.';div.append(aviso);
+             aviso.textContent='Pix já criado. Verificando automaticamente se o pagamento foi confirmado. Não faça outro Pix.';div.append(aviso);
+             const conferir=document.createElement('button');conferir.type='button';conferir.textContent='🔄 Conferir pagamento agora';
+             conferir.addEventListener('click',async()=>{conferir.disabled=true;conferir.textContent='Consultando Mercado Pago...';try{const resultado=await consultarConfirmacaoPix(contrato.id);if(resultado.confirmado){document.getElementById('mensagemArtista').textContent='✅ Pagamento efetuado com sucesso! Sua música será incluída na programação durante nosso horário de atendimento.';await carregarMeusEnvios();}else{aviso.textContent='Pagamento ainda não confirmado pelo Mercado Pago. Aguarde alguns instantes.';}}catch(e){aviso.textContent='Não foi possível conferir agora: '+e.message;}finally{conferir.disabled=false;conferir.textContent='🔄 Conferir pagamento agora';}});div.append(conferir);
            }
          }
        }
