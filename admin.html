@@ -9,6 +9,10 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#080b15;color:#fff;font-family:Arial,sans-serif}header{text-align:center;padding:35px 15px;background:linear-gradient(135deg,#17152c,#42200b)}h1,h2{color:#ffbd35}main{max-width:850px;margin:auto;padding:20px}.card{background:#121827;border:1px solid #a86a20;border-radius:16px;padding:25px;margin:20px 0}button{background:linear-gradient(90deg,#e27b0b,#ffca46);border:0;border-radius:25px;padding:13px 22px;font-weight:bold;cursor:pointer;margin:5px 5px 5px 0;color:#20170b}button:disabled{opacity:.5;cursor:not-allowed}input{display:block;width:100%;padding:12px;margin:12px 0;border-radius:8px;border:1px solid #6e7380}small,.muted{color:#c7c7cf}summary{cursor:pointer;font-weight:bold;padding:12px 0}details{border-bottom:1px solid #343947}audio{width:100%;max-width:480px;margin:8px 0}.musica{padding:14px 0;border-bottom:1px solid #343947;overflow-wrap:anywhere}.musica p{margin:4px 0 10px}.acoes{display:flex;flex-wrap:wrap}.aviso{color:#ffcf83}.erro{color:#ff9999}.ok{color:#a8f0be}#loginAdmin{max-width:850px;margin:20px auto}#areaAdmin[hidden],#loginAdmin[hidden]{display:none}#mensagemLogin,#mensagemPainel{white-space:pre-wrap}#btnAtualizar{margin:10px 0 16px}
 
+/* Instalação do painel administrativo */
+.instalacao-admin{text-align:center;margin:18px 0;padding:14px 10px;border:1px solid #44516a;border-radius:12px;background:#1b2438}
+#btnInstalarAdmin{max-width:100%;white-space:normal}
+#avisoInstalarAdmin{font-size:13px;line-height:1.5;margin:8px 0 0}
 /* PAINEL V2 - BUSCA E ROLAGEM SEMPRE VISIVEIS */
 .lista-rolagem{height:300px;overflow-y:scroll;overflow-x:hidden;padding:0 10px 0 0;scrollbar-width:thin;scrollbar-color:#e5a22d #182032;overscroll-behavior:contain}
 .lista-rolagem .musica{padding:7px 0}.lista-rolagem .musica[hidden]{display:none}
@@ -32,14 +36,13 @@
 <body>
 <header><h1>📻 RÁDIO SUA VEZ</h1><p>Painel Administrativo</p></header>
 <section class="card" id="loginAdmin">
- <div style="text-align:center;margin:15px 0">
-  <button type="button" id="btnInstalarAdmin" hidden>
-    📲 Instalar Rádio Sua Vez — Admin
-  </button>
-  <p id="avisoInstalarAdmin" class="muted"></p>
-</div>
-<h2>🔐 Login Administrativo</h2><p>Entre para administrar a Rádio Sua Vez.</p>
-<form id="formLogin"><label for="emailAdmin">E-mail</label><input id="emailAdmin" type="email" autocomplete="username" required><label for="senhaAdmin">Senha</label><input id="senhaAdmin" type="password" autocomplete="current-password" required><button type="submit" id="btnEntrar">Entrar</button></form><p id="mensagemLogin" role="status"></p>
+  <h2>🔐 Login Administrativo</h2>
+  <p>Entre para administrar a Rádio Sua Vez.</p>
+  <div class="instalacao-admin">
+    <button type="button" id="btnInstalarAdmin">📲 Instalar Rádio Sua Vez — Admin</button>
+    <p id="avisoInstalarAdmin" class="muted" role="status" aria-live="polite"></p>
+  </div>
+  <form id="formLogin"><label for="emailAdmin">E-mail</label><input id="emailAdmin" type="email" autocomplete="username" required><label for="senhaAdmin">Senha</label><input id="senhaAdmin" type="password" autocomplete="current-password" required><button type="submit" id="btnEntrar">Entrar</button></form><p id="mensagemLogin" role="status"></p>
 </section>
 <main id="areaAdmin" hidden>
 <section class="card"><h2>🎵 Adicionar música</h2>
@@ -565,6 +568,59 @@ el('formAdicionar').addEventListener('submit',async event=>{
   alert('Erro ao adicionar música: '+e.message);
  }finally{operando=false;botao.disabled=false;botao.textContent='Adicionar música';}
 });
+// Instalação PWA administrativa. O Chrome só permite abrir o prompt após interação.
+let eventoInstalacaoAdmin = null;
+const botaoInstalarAdmin = el('btnInstalarAdmin');
+const avisoInstalarAdmin = el('avisoInstalarAdmin');
+const modoStandaloneAdmin = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+function atualizarInstalacaoAdmin(){
+  if(modoStandaloneAdmin()){
+    botaoInstalarAdmin.hidden = true;
+    avisoInstalarAdmin.textContent = 'Aplicativo aberto em modo instalado.';
+  }else if(eventoInstalacaoAdmin){
+    botaoInstalarAdmin.hidden = false;
+    avisoInstalarAdmin.textContent = 'Toque no botão para instalar o painel no celular.';
+  }else{
+    botaoInstalarAdmin.hidden = false;
+    avisoInstalarAdmin.textContent = 'Se a instalação automática não aparecer, abra o menu ⋮ do Chrome e escolha “Instalar app” ou “Adicionar à tela inicial”.';
+  }
+}
+window.addEventListener('beforeinstallprompt', event => {
+  event.preventDefault();
+  eventoInstalacaoAdmin = event;
+  atualizarInstalacaoAdmin();
+});
+window.addEventListener('appinstalled', () => {
+  eventoInstalacaoAdmin = null;
+  atualizarInstalacaoAdmin();
+});
+botaoInstalarAdmin.addEventListener('click', async () => {
+  if(!eventoInstalacaoAdmin){
+    avisoInstalarAdmin.textContent = 'No Chrome do celular, toque em ⋮ e selecione “Instalar app” ou “Adicionar à tela inicial”. Se estiver no navegador interno de outro aplicativo, abra o link no Chrome.';
+    return;
+  }
+  const promptInstalacao = eventoInstalacaoAdmin;
+  eventoInstalacaoAdmin = null;
+  botaoInstalarAdmin.disabled = true;
+  try{
+    await promptInstalacao.prompt();
+    const escolha = await promptInstalacao.userChoice;
+    avisoInstalarAdmin.textContent = escolha?.outcome === 'accepted' ? 'Instalação solicitada. Confira a tela inicial do celular.' : 'Instalação cancelada. Você pode tentar pelo menu do Chrome.';
+  }catch(e){
+    avisoInstalarAdmin.textContent = 'Não foi possível abrir a instalação automática. Use o menu ⋮ do Chrome.';
+  }finally{
+    botaoInstalarAdmin.disabled = false;
+    atualizarInstalacaoAdmin();
+  }
+});
+// Reutiliza o service worker já publicado para a Rádio Sua Vez.
+// O manifesto administrativo possui identidade e página inicial próprias.
+if('serviceWorker' in navigator && location.protocol === 'https:'){
+  navigator.serviceWorker.register('./sw.js').catch(() => {
+    // O painel online continua funcionando mesmo sem o cache offline.
+  });
+}
+atualizarInstalacaoAdmin();
 atualizarAcesso().catch(e=>{el('mensagemLogin').textContent='Erro ao verificar acesso: '+e.message;});
 </script>
 </body>
