@@ -5,6 +5,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Rádio Sua Vez | Novos Talentos</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#080b15">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rádio Sua Vez">
+<link rel="apple-touch-icon" href="./icon-192.png">
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#080b15;color:white;font-family:Arial,sans-serif}
@@ -56,6 +62,13 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
 .dados-previa{flex:1;min-width:190px}.dados-previa h4{margin:0 0 5px;color:#ffbd35}.dados-previa p{margin:4px 0 12px;color:#d5d9e5}
 .controles-previa{display:flex;gap:9px;flex-wrap:wrap;align-items:center}.controles-previa button{padding:10px 18px}
 #progressoPrevia{width:100%;margin-top:12px;accent-color:#ffbd35}#tempoPrevia{font-size:13px;color:#bbc4d6}
+
+/* Instalação PWA: sem interferir no player nem no cadastro */
+.instalar-radio{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap;padding:15px 12px;background:#0c1222;border-bottom:1px solid #39415a}
+.instalar-radio button{font-size:15px}
+.instalar-radio small{color:#cbd5e1;text-align:center}
+#ajudaInstalacao[hidden]{display:none!important}
+#ajudaInstalacao{max-width:700px;margin:10px auto;padding:14px 18px;background:#171f33;border:1px solid #ffbd35;border-radius:12px;line-height:1.6}
 </style>
 </head>
 <body>
@@ -82,6 +95,13 @@ footer{text-align:center;background:#050711;padding:35px;color:#aaa}
   </button>
 </div>
 
+
+
+<section class="instalar-radio" aria-label="Instalar aplicativo da rádio">
+  <button id="instalarRadioApp" type="button">📲 Instalar Rádio Sua Vez</button>
+  <small>Leve a rádio para a tela inicial do celular.</small>
+</section>
+<div id="ajudaInstalacao" hidden role="status" aria-live="polite"></div>
 
 <main id="inicio">
 <section class="card" id="ouvir">
@@ -1141,6 +1161,44 @@ document.getElementById('copiarPixReal').addEventListener('click',async()=>{
  catch(e){document.getElementById('codigoPixReal').select();document.getElementById('mensagemPixReal').textContent='Selecione e copie o código manualmente.';}
 });
 document.getElementById('fecharPixReal').addEventListener('click',()=>document.getElementById('modalPixReal').hidden=true);
+</script>
+
+<script>
+/* PWA dos ouvintes: instalação depende do navegador e do dispositivo. */
+(() => {
+  const botao = document.getElementById('instalarRadioApp');
+  const ajuda = document.getElementById('ajudaInstalacao');
+  let eventoInstalacao = null;
+  const instalado = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  const informar = mensagem => { ajuda.textContent = mensagem; ajuda.hidden = false; };
+  const atualizar = () => { if (instalado()) { botao.textContent = '📻 Rádio Sua Vez instalada'; botao.disabled = true; ajuda.hidden = true; } };
+  window.addEventListener('beforeinstallprompt', evento => {
+    evento.preventDefault();
+    eventoInstalacao = evento;
+    botao.textContent = '📲 Instalar Rádio Sua Vez';
+  });
+  window.addEventListener('appinstalled', () => { eventoInstalacao = null; atualizar(); });
+  botao.addEventListener('click', async () => {
+    if (instalado()) { atualizar(); return; }
+    if (eventoInstalacao) {
+      const evento = eventoInstalacao;
+      eventoInstalacao = null;
+      try { await evento.prompt(); await evento.userChoice; }
+      catch (erro) { informar('Não foi possível abrir a instalação. Use o menu do navegador e procure Instalar aplicativo.'); }
+      return;
+    }
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (ios) informar('No iPhone: abra esta página no Safari, toque em Compartilhar e escolha Adicionar à Tela de Início.');
+    else informar('No Android: abra o menu ⋮ do Chrome e escolha Instalar aplicativo ou Adicionar à tela inicial. Se não aparecer, tente atualizar a página.');
+  });
+  atualizar();
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./service-worker.js', {scope:'./'})
+        .catch(erro => console.warn('Instalação PWA indisponível:', erro));
+    });
+  }
+})();
 </script>
 </body>
 </html>
