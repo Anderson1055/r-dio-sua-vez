@@ -1,0 +1,27 @@
+
+{
+  "name": "Rádio Sua Vez — A rádio dos novos talentos",
+  "short_name": "Rádio Sua Vez",
+  "description": "Ouça a Rádio Sua Vez, a rádio dos novos talentos.",
+  "lang": "pt-BR",
+  "id": "/r-dio-sua-vez/",
+  "start_url": "/r-dio-sua-vez/",
+  "scope": "/r-dio-sua-vez/",
+  "display": "standalone",
+  "background_color": "#080b15",
+  "theme_color": "#080b15",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
