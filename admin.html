@@ -28,7 +28,7 @@
 .estilos-painel button{margin-top:12px}.estilos-resumo{font-size:12px;color:#a8f0be;margin:6px 0}
 /* Controle AzuraCast */
 #statusAzuraCast{white-space:pre-wrap;overflow-wrap:anywhere}
-/* Contratações de teste */
+/* Contratações reais */
 .pedido-card{padding:15px;border:1px solid #44516a;border-radius:12px;margin:12px 0;background:#1b2438;overflow-wrap:anywhere}
 .pedido-card p{margin:7px 0}.pedido-card button{margin-top:10px}.checagem-pedido{border-left:3px solid #ffbd35;padding:8px 12px;margin-top:12px;background:#222d46;border-radius:5px}
 </style>
@@ -48,8 +48,8 @@
 <section class="card"><h2>🎵 Adicionar música</h2>
 <form id="formAdicionar"><label for="nomeMusica">Nome da música</label><input id="nomeMusica" type="text" placeholder="Ex.: Meu Girassol" required maxlength="200"><label for="nomeArtista">Nome do artista</label><input id="nomeArtista" type="text" placeholder="Ex.: Anderson Picoloto" required maxlength="200"><label for="arquivoMp3">Arquivo MP3</label><input id="arquivoMp3" type="file" accept="audio/mpeg,.mp3" required><label for="arquivoCapa">Capa da música</label><input id="arquivoCapa" type="file" accept="image/png,image/jpeg,image/webp" required><button type="submit" id="btnAdicionarMusica">Adicionar música</button></form><p><small>Músicas cadastradas pelo administrador entram aprovadas, sem cobrança. Você decide quando liberar para a programação da rádio.</small></p></section>
 <section class="card" id="secaoEnvios"><h2>📨 Painel 1 — Envios dos artistas para análise</h2><p class="muted">Os envios desta seção vêm da tabela <code>envios_artistas</code>. A aprovação aqui não coloca a música automaticamente no ar nem solicita pagamento.</p><button type="button" id="btnAtualizarEnvios">🔄 Atualizar envios dos artistas</button><p id="mensagemEnvios" role="status"></p><div id="listaEnviosArtistas" class="lista-rolagem" aria-label="Envios dos artistas"></div></section>
-<section class="card" id="secaoContratacoes"><h2>💳 Painel 2 — Aguardando plano e Pix</h2><p class="muted">Músicas aprovadas na análise ficam aqui, fora da biblioteca. Pedidos de teste não são comprovantes de Pix. A liberação real será implementada na próxima etapa, no servidor.</p><h3>🎶 Aprovadas aguardando contratação ou pagamento</h3><div id="listaAguardandoPix" class="lista-rolagem" aria-label="Músicas aguardando plano ou Pix"></div><h3>📋 Contratações registradas</h3><button type="button" id="btnAtualizarContratacoes">🔄 Atualizar contratações</button><p id="mensagemContratacoes" role="status"></p><div id="listaContratacoes" aria-label="Contratações registradas"></div></section>
-<section class="card"><h2>🎵 Painel 3 — Biblioteca de músicas liberadas</h2><p class="muted">Somente músicas cadastradas diretamente pelo administrador ou artistas com liberação validada pelo servidor devem aparecer aqui. A confirmação do Pix ainda será integrada.</p><button type="button" id="btnListarMusicas">🔄 Atualizar lista de músicas</button><p id="mensagemPainel" role="status"></p>
+<section class="card" id="secaoContratacoes"><h2>💳 Painel 2 — Aguardando plano e Pix</h2><p class="muted">Músicas aprovadas na análise ficam aqui, fora da biblioteca. A confirmação do Pix vem do servidor. Após o pagamento real, a música fica disponível para preparação administrativa, sem entrar automaticamente no AzuraCast.</p><h3>🎶 Aprovadas aguardando contratação ou pagamento</h3><div id="listaAguardandoPix" class="lista-rolagem" aria-label="Músicas aguardando plano ou Pix"></div><h3>📋 Contratações registradas</h3><button type="button" id="btnAtualizarContratacoes">🔄 Atualizar contratações</button><p id="mensagemContratacoes" role="status"></p><div id="listaContratacoes" aria-label="Contratações registradas"></div></section>
+<section class="card"><h2>🎵 Painel 3 — Biblioteca de músicas liberadas</h2><p class="muted">Somente músicas cadastradas diretamente pelo administrador ou artistas com liberação validada pelo servidor devem aparecer aqui. Músicas enviadas por artistas pagantes ficam disponíveis para preparação no Painel 2; a ativação e o envio dependem da integração segura no servidor.</p><button type="button" id="btnListarMusicas">🔄 Atualizar lista de músicas</button><p id="mensagemPainel" role="status"></p>
 <details open><summary>🕒 Aguardando aprovação (<span id="qtdPendentes">0</span>)</summary><label for="busca-aguardando">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-aguardando" data-categoria="aguardando" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-aguardando" aria-live="polite"></p><div id="listaMusicas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
 <details><summary>✅ Músicas aprovadas (<span id="qtdAprovadas">0</span>)</summary><label for="busca-aprovada">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-aprovada" data-categoria="aprovada" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-aprovada" aria-live="polite"></p><div id="listaAprovadas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
 <details><summary>❌ Músicas rejeitadas (<span id="qtdRejeitadas">0</span>)</summary><label for="busca-rejeitada">🔎 Pesquisar nesta categoria</label><input class="busca-categoria" id="busca-rejeitada" data-categoria="rejeitada" type="search" placeholder="🔎 Buscar música ou artista..." autocomplete="off"><p class="contador-busca" id="resultado-rejeitada" aria-live="polite"></p><div id="listaRejeitadas" class="lista-rolagem" tabindex="0" aria-label="Lista de músicas com rolagem"></div></details>
@@ -356,7 +356,7 @@ async function listarEnviosArtistas(){
   const outros=registros.filter(m=>!pendentes.includes(m));
   const aguardandoPix=el('listaAguardandoPix');aguardandoPix.replaceChildren();
   const aprovados=registros.filter(m=>String(m.status||'').toLowerCase().trim()==='aprovada');
-  const {data:contratos,error:erroContratos}=await client.from('contratacoes_divulgacao').select('envio_id,status,plano,criado_em').order('criado_em',{ascending:false}).limit(500);
+  const {data:contratos,error:erroContratos}=await client.from('contratacoes_divulgacao').select('envio_id,status,plano,criado_em,pago_em,pagamento_id').order('criado_em',{ascending:false}).limit(500);
   if(erroContratos)throw erroContratos;
   const ultimoContrato=new Map();for(const c of contratos||[]){if(!ultimoContrato.has(String(c.envio_id)))ultimoContrato.set(String(c.envio_id),c);}
   for(const m of aprovados){
@@ -438,7 +438,7 @@ async function listarEnviosArtistas(){
  }catch(e){el('mensagemEnvios').textContent='Erro ao carregar envios: '+e.message;}
  finally{carregandoEnvios=false;el('btnAtualizarEnvios').disabled=false;}
 }
-// Somente pedidos de teste: não altera pago_em, inicio_em, fim_em ou programação.
+// Consulta contratações reais sem modificar pagamento ou programação.
 let carregandoContratacoes=false;
 async function listarContratacoes(){
  if(carregandoContratacoes)return;
@@ -449,7 +449,7 @@ async function listarContratacoes(){
  try{
   if(!(await adminAutorizado()))throw new Error('Acesso administrativo não autorizado.');
   const {data:pedidos,error}=await client.from('contratacoes_divulgacao')
-   .select('id,envio_id,usuario_id,plano,valor,status,criado_em,execucoes_realizadas,pago_em,inicio_em,fim_em')
+   .select('id,envio_id,usuario_id,plano,valor,status,criado_em,execucoes_realizadas,pago_em,pagamento_id,inicio_em,fim_em')
    .order('criado_em',{ascending:false}).limit(200);
   if(error)throw error;
   const ids=[...new Set((pedidos||[]).map(p=>p.envio_id).filter(Boolean))];
@@ -481,38 +481,23 @@ async function listarContratacoes(){
     const temCapa=Boolean(envio && [envio.capa_caminho,envio.capa_url,envio.url_capa].some(v=>typeof v==='string'&&v.trim()));
     const temAudio=Boolean(envio && [envio.arquivo_caminho,envio.arquivo_url,envio.audio_url,envio.mp3_url].some(v=>typeof v==='string'&&v.trim()));
     const aprovado=String(envio?.status||'').toLowerCase()==='aprovada';
+    const pagamentoReal=Boolean(p.pago_em && p.pagamento_id && ['ativo','pago','pagamento_confirmado','concluido'].includes(situacao));
     const linhas=[
      'Análise artística: '+(aprovado?'aprovada':'não aprovada ou não identificada'),
      'Arquivo de áudio: '+(temAudio?'cadastrado':'não identificado'),
      'Capa: '+(temCapa?'cadastrada':'pendente — obrigatória antes da transmissão'),
-     'Pagamento: '+(situacao==='confirmado_teste'?'somente TESTE — nenhum Pix real comprovado':situacao==='aguardando_pagamento'?'aguardando pagamento': 'status '+(p.status||'não informado')+' — requer verificação segura no servidor'),
-     'Liberação: BLOQUEADA até existir validação de pagamento real no servidor e programação automática.'
+     'Pagamento: '+(pagamentoReal?'Pix real registrado no servidor, ID '+p.pagamento_id:'sem confirmação real suficiente para desbloqueio'),
+     'Preparação: '+(pagamentoReal?'DESBLOQUEADA para conferência administrativa':'BLOQUEADA até pagamento real'),
+     'Transmissão: depende de ativação manual segura e integração com AzuraCast.'
     ];
     for(const linha of linhas){const par=document.createElement('p');par.textContent=linha;resultado.appendChild(par);}
     card.appendChild(resultado);
    });
    card.appendChild(checar);
-   if(p.status==='aguardando_pagamento'){
-    const confirmar=criarBotao('🧪 Confirmar pagamento de TESTE',async()=>{
-     if(operando||!(await adminAutorizado()))return;
-     if(!confirm('Confirmar somente o TESTE do pedido de “'+(envio?.titulo||'música')+'”? Não houve pagamento real e a música NÃO será liberada para tocar.'))return;
-     operando=true;confirmar.disabled=true;
-     try{
-      const {data,error}=await client.from('contratacoes_divulgacao')
-       .update({status:'confirmado_teste'})
-       .eq('id',p.id).eq('status','aguardando_pagamento').select('id,status');
-      if(error)throw error;
-      if(data?.length!==1)throw new Error('Atualização não autorizada ou pedido já alterado. Confira a política RLS de UPDATE do administrador.');
-      alert('Pagamento de TESTE confirmado. Nenhum Pix foi recebido e a música não foi ativada.');
-     }catch(e){alert('Não foi possível confirmar o teste: '+e.message);}
-     finally{operando=false;await listarContratacoes();}
-    });
-    card.appendChild(confirmar);
-   }
    lista.appendChild(card);
   }
   if(!pedidos?.length){const vazio=document.createElement('p');vazio.className='muted';vazio.textContent='Nenhuma contratação registrada.';lista.appendChild(vazio);}
-  aviso.className='ok';aviso.textContent='Pedidos encontrados: '+(pedidos?.length||0)+'. Confirmações nesta seção são apenas testes.';
+  aviso.className='ok';aviso.textContent='Contratações encontradas: '+(pedidos?.length||0)+'. Pagamentos reais identificados pelo registro do servidor.';
  }catch(e){aviso.className='erro';aviso.textContent='Erro ao carregar contratações: '+e.message;}
  finally{carregandoContratacoes=false;botao.disabled=false;}
 }
