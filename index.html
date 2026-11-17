@@ -777,6 +777,12 @@ async function verificarPixPendentes(){
           document.getElementById('mensagemArtista').textContent=mensagem;
           ultimaFalhaPix='';
           await carregarMeusEnvios();
+          
+const janelaPix = document.getElementById('modalPixReal');
+if (janelaPix) {
+  janelaPix.hidden = true;
+}
+
         }
       }catch(erro){
         // Falhas temporárias não significam pagamento recusado.
