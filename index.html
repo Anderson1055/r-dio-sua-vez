@@ -829,7 +829,18 @@ async function carregarMeusEnvios(){
      // Consultar contratações já registradas para evitar pedidos duplicados.
      const contratos=await apiArtista(tabelaContratacoes+'?select=id,envio_id,plano,status,pagamento_id&usuario_id=eq.'+encodeURIComponent(sessaoArtista.user.id)+'&order=criado_em.desc&limit=200');
       escolhasPlanos.clear();atualizarResumoPlanos();
-     const porEnvio=new Map(contratos.map(c=>[String(c.envio_id),c]));
+     
+const porEnvio = new Map();
+
+for (const c of contratos) {
+  if (
+    c.status !== 'cancelado' &&
+    !porEnvio.has(String(c.envio_id))
+  ) {
+    porEnvio.set(String(c.envio_id), c);
+  }
+}
+
      contratosPendentesPix=contratos.filter(c=>c.status==='aguardando_pagamento' && c.pagamento_id).map(c=>c.id);
      // Ao entrar na Área do Artista, conferir também pagamentos anteriores.
      if(contratosPendentesPix.length)setTimeout(verificarPixPendentes,100);
@@ -841,6 +852,17 @@ async function carregarMeusEnvios(){
        if(normalizar(m.status)==='aprovada' && porEnvio.has(String(m.id))){
          const contrato=porEnvio.get(String(m.id));
          const plano=PLANOS_DIVULGACAO.find(p=>p.codigo===contrato.plano);
+         
+if (contrato.status === 'aguardando_pagamento' && contrato.pagamento_id) {
+  const avisoTroca = document.createElement('p');
+  avisoTroca.className = 'plano-aviso';
+  avisoTroca.textContent =
+    '⚠️ Você possui um Pix pendente do Plano ' +
+    (plano ? plano.nome : contrato.plano) +
+    '. Para contratar outro plano, primeiro cancele o Pix anterior.';
+  div.append(avisoTroca);
+}
+
          const p=document.createElement('p');p.className='plano-aviso';
          p.textContent='📣 Plano: '+(plano?plano.nome+' — '+plano.preco:contrato.plano)+' | Situação: '+contrato.status;
          div.append(p);
@@ -863,12 +885,79 @@ verPix.addEventListener('click', () => {
 });
 div.append(verPix);
 
+const cancelarPix = document.createElement('button');
+cancelarPix.type = 'button';
+cancelarPix.textContent = '❌ Cancelar Pix pendente';
+
+cancelarPix.addEventListener('click', async () => {
+  const confirmar = confirm(
+    'Deseja cancelar o Pix pendente do Plano ' +
+    (plano ? plano.nome : contrato.plano) +
+    '?\n\nDepois do cancelamento, você poderá escolher outro plano.'
+  );
+
+  if (!confirmar) return;
+
+  cancelarPix.disabled = true;
+  cancelarPix.textContent = 'Consultando Mercado Pago...';
+
+  try {
+    const urlCancelar =
+      supabaseUrl + '/functions/v1/cancelar-pix-pendente';
+
+    const respostaCancelamento = await fetch(urlCancelar, {
+      method: 'POST',
+      headers: cabecalhosArtista({
+        'Content-Type': 'application/json'
+      }),
+      body: JSON.stringify({
+        contratacao_id: contrato.id
+      })
+    });
+
+    const resultado = await respostaCancelamento.json();
+
+    if (!respostaCancelamento.ok ||
+        !resultado.cancelamento_confirmado) {
+      throw new Error(
+        resultado.error || 'Não foi possível cancelar o Pix.'
+      );
+    }
+
+    alert(
+      'Pix cancelado com sucesso! Agora você pode escolher outro plano.'
+    );
+
+    await carregarMeusEnvios();
+
+  } catch (erro) {
+    alert('Cancelamento não concluído: ' + erro.message);
+  } finally {
+    cancelarPix.disabled = false;
+    cancelarPix.textContent = '❌ Cancelar Pix pendente';
+  }
+});
+
+div.append(cancelarPix);
+
              const conferir=document.createElement('button');conferir.type='button';conferir.textContent='🔄 Conferir pagamento agora';
              conferir.addEventListener('click',async()=>{conferir.disabled=true;conferir.textContent='Consultando Mercado Pago...';try{const resultado=await consultarConfirmacaoPix(contrato.id);if(resultado.confirmado){document.getElementById('mensagemArtista').textContent='✅ Pagamento efetuado com sucesso! Sua música será incluída na programação durante nosso horário de atendimento.';await carregarMeusEnvios();}else{aviso.textContent='Pagamento ainda não confirmado pelo Mercado Pago. Aguarde alguns instantes.';}}catch(e){aviso.textContent='Não foi possível conferir agora: '+e.message;}finally{conferir.disabled=false;conferir.textContent='🔄 Conferir pagamento agora';}});div.append(conferir);
            }
          }
        }
-       if(normalizar(m.status)==='aprovada' && !porEnvio.has(String(m.id))){
+       
+
+if (
+  normalizar(m.status) === 'aprovada' &&
+  (
+    !porEnvio.has(String(m.id)) ||
+    ['cancelado', 'aguardando_pagamento'].includes(
+      porEnvio.get(String(m.id))?.status
+    )
+  )
+) {
+
+
          const area=document.createElement('div');area.className='plano-contratacao';
          const titulo=document.createElement('h4');titulo.textContent='📣 Contratar divulgação';area.append(titulo);
          const descricao=document.createElement('p');descricao.className='plano-aviso';descricao.textContent='Escolha um plano. O Pix será real e a música só poderá entrar na programação depois da confirmação do pagamento.';area.append(descricao);
@@ -878,7 +967,34 @@ div.append(verPix);
            const botao=document.createElement('button');botao.type='button';botao.className='plano-opcao';
            botao.innerHTML='<strong>'+plano.nome+'</strong><span>'+plano.preco+'</span><span>'+plano.dias+' dias</span><span>'+plano.porDia+' execuções/dia</span><span>'+plano.total+' execuções previstas</span>';
            botao.setAttribute('aria-pressed','false');
-           botao.addEventListener('click',()=>{escolhido=plano;escolhasPlanos.set(String(m.id),plano);opcoes.forEach(b=>{b.classList.toggle('selecionado',b===botao);b.setAttribute('aria-pressed',String(b===botao));});atualizarResumoPlanos();});
+           
+botao.addEventListener('click', () => {
+  const contratoAtual = porEnvio.get(String(m.id));
+
+  if (contratoAtual?.status === 'aguardando_pagamento') {
+    const planoAtual = PLANOS_DIVULGACAO.find(
+      p => p.codigo === contratoAtual.plano
+    );
+
+    retorno.textContent =
+      '⚠️ Você já possui uma contratação pendente do Plano ' +
+      (planoAtual ? planoAtual.nome : contratoAtual.plano) +
+      '. Para escolher outro plano, primeiro cancele o Pix anterior.';
+
+    return;
+  }
+
+  escolhido = plano;
+  escolhasPlanos.set(String(m.id), plano);
+
+  opcoes.forEach(b => {
+    b.classList.toggle('selecionado', b === botao);
+    b.setAttribute('aria-pressed', String(b === botao));
+  });
+
+  atualizarResumoPlanos();
+});
+
            opcoes.push(botao);grade.append(botao);
          });area.append(grade);
          const confirmar=document.createElement('button');confirmar.type='button';confirmar.textContent='💠 Contratar e gerar Pix real';
@@ -890,10 +1006,37 @@ div.append(verPix);
            try{
              const existentes=await apiArtista(tabelaContratacoes+'?select=id,plano,status,pagamento_id&envio_id=eq.'+encodeURIComponent(m.id)+'&usuario_id=eq.'+encodeURIComponent(sessaoArtista.user.id)+'&limit=1');
              let id;
-             if(existentes.length){
-               if(existentes[0].status!=='aguardando_pagamento'||existentes[0].pagamento_id)throw new Error('Esta música já possui uma contratação. Atualize a lista.');
-               id=existentes[0].id;
-             }else{
+             
+const contratoEmAberto = existentes.find(
+  c => c.status === 'aguardando_pagamento'
+);
+
+const contratoProtegido = existentes.find(
+  c => ['pago', 'ativo', 'concluido'].includes(c.status)
+);
+
+if (contratoProtegido) {
+  throw new Error(
+    'Esta música já possui um plano pago ou ativo. Não é possível contratar outro por aqui.'
+  );
+}
+
+if (contratoEmAberto) {
+  if (contratoEmAberto.pagamento_id) {
+    throw new Error(
+      'Você já possui um Pix pendente. Cancele primeiro o Pix anterior para escolher outro plano.'
+    );
+  }
+
+  if (contratoEmAberto.plano !== escolhido.codigo) {
+    throw new Error(
+      'Já existe uma contratação de outro plano aguardando pagamento.'
+    );
+  }
+
+  id = contratoEmAberto.id;
+} else {
+
                const criados=await apiArtista(tabelaContratacoes,{method:'POST',headers:{'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({envio_id:m.id,usuario_id:sessaoArtista.user.id,plano:escolhido.codigo,valor:escolhido.valor,status:'aguardando_pagamento'})});
                id=criados?.[0]?.id;if(!id)throw new Error('Contratação não retornou identificador.');
              }
@@ -944,7 +1087,7 @@ async function verificarAdministrador(){
   const painel=document.getElementById('painelAdmin');painel.hidden=true;
   if(!sessaoArtista?.access_token)return;
   try{
-    const dados=await apiArtista(supabaseUrl+'/rest/v1/admin_usuarios?select=user_id&user_id=eq.'+encodeURIComponent(sessaoArtista.user.id)+'&limit=1');
+    const dados=await apiArtista(supabaseUrl+'/rest/v1/admin_usuarios?select=user_id&user_id=eq.'+encodeURIComponent(sessaoArtista.user.id)+'&order=criado_em.desc&limit=20');
     painel.hidden=!dados.length;
     if(dados.length)await carregarAdmin();
   }catch(e){console.warn('Permissão administrativa indisponível:',e.message);}
