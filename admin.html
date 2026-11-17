@@ -1,3 +1,4 @@
+```
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -235,10 +236,20 @@ function montarMusica(m){
   }else{
    acoes.appendChild(criarBotao('▶️ Ativar na rádio',()=>controlarProgramacao(m,true,aviso)));
   }
-  if(m.liberada_radio===true){
-   const enviar=criarBotao('📤 Enviar ao AzuraCast',()=>enviarMusicaAzuraCast(m,enviar,aviso));
-   acoes.appendChild(enviar);
+  // Mantém o botão visível mesmo antes da ativação, indicando o passo necessário.
+  const enviar=criarBotao('📤 Enviar ao AzuraCast',()=>enviarMusicaAzuraCast(m,enviar,aviso));
+  enviar.disabled=m.liberada_radio!==true;
+  enviar.title=enviar.disabled?'Primeiro clique em Ativar na rádio. Depois atualize a lista.':'Enviar MP3 ao AzuraCast';
+  acoes.appendChild(enviar);
+  if(enviar.disabled){
+   const orientacao=document.createElement('small');
+   orientacao.textContent='Para enviar ao AzuraCast, primeiro clique em Ativar na rádio.';
+   conteudo.appendChild(orientacao);
   }
+ }else if(e==='aprovada'&&m.origem!=='artista'){
+  const aviso=document.createElement('p');aviso.className='aviso';
+  aviso.textContent='Cadastro sem origem de administrador reconhecida ('+String(m.origem??'não definida')+'). Os botões de rádio dependem da origem correta no banco.';
+  conteudo.appendChild(aviso);
  }
  if(e!=='lixeira')conteudo.appendChild(montarSeletorEstilos(m));
  if(e==='lixeira'){acoes.appendChild(criarBotao('↩️ Restaurar',()=>mudarMusica(m,'restaurar')));acoes.appendChild(criarBotao('🗑️ Excluir definitivamente',()=>excluirDefinitivamente(m)));}
@@ -656,3 +667,4 @@ atualizarAcesso().catch(e=>{el('mensagemLogin').textContent='Erro ao verificar a
 </script>
 </body>
 </html>
+```
