@@ -1,4 +1,3 @@
-```
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -223,9 +222,53 @@ function montarMusica(m){
  const cabecalho=document.createElement('button');cabecalho.type='button';cabecalho.className='musica-cabecalho';cabecalho.setAttribute('aria-expanded','false');
  cabecalho.textContent='🎵 '+(m.titulo||'Sem título')+' — '+(m.artista||'Artista não informado')+'  ▾';
  const conteudo=document.createElement('div');conteudo.className='musica-conteudo';conteudo.hidden=true;
- cabecalho.addEventListener('click',()=>{conteudo.hidden=!conteudo.hidden;cabecalho.setAttribute('aria-expanded',String(!conteudo.hidden));cabecalho.textContent='🎵 '+(m.titulo||'Sem título')+' — '+(m.artista||'Artista não informado')+(conteudo.hidden?'  ▾':'  ▴');});
+ cabecalho.addEventListener('click',()=>{
+  conteudo.hidden=!conteudo.hidden;
+  cabecalho.setAttribute('aria-expanded',String(!conteudo.hidden));
+  cabecalho.textContent='🎵 '+(m.titulo||'Sem título')+' — '+(m.artista||'Artista não informado')+(conteudo.hidden?'  ▾':'  ▴');
+  if(!conteudo.hidden && typeof carregarAudioPrivado==='function')carregarAudioPrivado();
+ });
  item.appendChild(cabecalho);
- if(m.arquivo_url){const player=document.createElement('audio');player.controls=true;player.preload='none';player.src=m.arquivo_url;conteudo.appendChild(player);}else{const aviso=document.createElement('p');aviso.className='aviso';aviso.textContent='Cadastro sem endereço do MP3.';conteudo.appendChild(aviso);}
+ let carregarAudioPrivado=null;
+ if(m.arquivo_url){
+  const player=document.createElement('audio');
+  player.controls=true;player.preload='metadata';
+  conteudo.appendChild(player);
+  if(m.origem==='artista' && !/^https:\/\//i.test(String(m.arquivo_url))){
+   // Arquivos de artistas ficam no bucket privado, e não são URLs públicas.
+   const avisoAudio=document.createElement('p');avisoAudio.className='muted';
+   conteudo.appendChild(avisoAudio);
+   let carregandoAudio=false;
+   let expiraEm=0;
+   carregarAudioPrivado=async()=>{
+    // Renova o link após expirar; evita reutilizar uma URL assinada antiga.
+    if(carregandoAudio || (player.src && Date.now()<expiraEm))return;
+    carregandoAudio=true;
+    avisoAudio.textContent='Carregando áudio privado...';
+    try{
+     if(!(await adminAutorizado()))throw new Error('Sessão administrativa expirada.');
+     const {data,error}=await client.storage.from('envios-musicais').createSignedUrl(String(m.arquivo_url),600);
+     if(error || !data?.signedUrl)throw new Error(error?.message||'Não foi possível criar o link do áudio.');
+     player.src=data.signedUrl;
+     player.load();
+     expiraEm=Date.now()+9*60*1000;
+     avisoAudio.textContent='';
+    }catch(e){avisoAudio.className='erro';avisoAudio.textContent='Não foi possível carregar o MP3: '+e.message;}
+    finally{carregandoAudio=false;}
+   };
+   player.addEventListener('error',()=>{
+    avisoAudio.className='erro';
+    avisoAudio.textContent='O navegador não conseguiu reproduzir o MP3. Atualize a lista e tente novamente.';
+    expiraEm=0;
+   });
+  }else{
+   // Músicas do administrador mantêm a URL pública existente.
+   player.src=m.arquivo_url;
+  }
+ }else{
+  const aviso=document.createElement('p');aviso.className='aviso';
+  aviso.textContent='Cadastro sem endereço do MP3.';conteudo.appendChild(aviso);
+ }
  const acoes=document.createElement('div');acoes.className='acoes';const e=estado(m);
  if(m.origem==='administrador'&&e==='aprovada'){
   const aviso=document.createElement('p');aviso.className=m.liberada_radio?'ok':'aviso';
@@ -667,4 +710,3 @@ atualizarAcesso().catch(e=>{el('mensagemLogin').textContent='Erro ao verificar a
 </script>
 </body>
 </html>
-```
