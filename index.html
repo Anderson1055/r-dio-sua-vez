@@ -854,6 +854,15 @@ async function carregarMeusEnvios(){
            }else{
              const aviso=document.createElement('p');aviso.className='plano-aviso';
              aviso.textContent='Pix já criado. Verificando automaticamente se o pagamento foi confirmado. Não faça outro Pix.';div.append(aviso);
+             
+const verPix = document.createElement('button');
+verPix.type = 'button';
+verPix.textContent = '💠 Ver meu Pix';
+verPix.addEventListener('click', () => {
+  executarGeracaoPix(contrato.id, verPix);
+});
+div.append(verPix);
+
              const conferir=document.createElement('button');conferir.type='button';conferir.textContent='🔄 Conferir pagamento agora';
              conferir.addEventListener('click',async()=>{conferir.disabled=true;conferir.textContent='Consultando Mercado Pago...';try{const resultado=await consultarConfirmacaoPix(contrato.id);if(resultado.confirmado){document.getElementById('mensagemArtista').textContent='✅ Pagamento efetuado com sucesso! Sua música será incluída na programação durante nosso horário de atendimento.';await carregarMeusEnvios();}else{aviso.textContent='Pagamento ainda não confirmado pelo Mercado Pago. Aguarde alguns instantes.';}}catch(e){aviso.textContent='Não foi possível conferir agora: '+e.message;}finally{conferir.disabled=false;conferir.textContent='🔄 Conferir pagamento agora';}});div.append(conferir);
            }
