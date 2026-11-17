@@ -529,6 +529,37 @@ async function liberarArtistaManual(pedido,envio,botao,aviso){
  }finally{operando=false;}
 }
 
+// Prepara áudio pago na biblioteca do AzuraCast, sem ativar reprodução.
+async function prepararArtistaAzura(pedido, envio, botao, aviso){
+ if(operando)return;
+ if(!(await adminAutorizado())){alert('Sessão administrativa expirada.');return;}
+ if(!pedido?.id||!envio?.id)return;
+ if(!confirm('Preparar “'+textoEnvio(envio,['titulo','nome_musica'])+'” na biblioteca do AzuraCast?\nA música NÃO entrará na playlist nem tocará automaticamente.'))return;
+ operando=true;botao.disabled=true;
+ aviso.className='aviso';aviso.textContent='Preparando o MP3 no AzuraCast...';
+ try{
+  const {data,error}=await client.functions.invoke('radio-azuracast',{
+   body:{acao:'preparar_artista',envio_id:String(envio.id)}
+  });
+  if(error){
+   let detalhe=error.message||'Falha ao chamar o servidor.';
+   if(error.context&&typeof error.context.json==='function'){
+    try{const resposta=await error.context.json();detalhe=resposta.erro||resposta.detalhe||detalhe;}catch{}
+   }
+   throw new Error(detalhe);
+  }
+  if(data?.sucesso!==true||data?.preparado!==true||data?.liberado!==false||!Number.isSafeInteger(Number(data.arquivo_id))||Number(data.arquivo_id)<=0){
+   throw new Error(data?.erro||'O servidor não confirmou a preparação segura do arquivo.');
+  }
+  aviso.className='ok';
+  aviso.textContent='✅ MP3 preparado na biblioteca do AzuraCast (arquivo '+data.arquivo_id+'). Ainda NÃO está na programação.';
+  botao.textContent='✅ Preparado no AzuraCast';
+ }catch(e){
+  aviso.className='erro';aviso.textContent='❌ Não foi possível preparar o MP3: '+e.message;
+  botao.disabled=false;
+ }finally{operando=false;}
+}
+
 // Consulta contratações reais sem modificar pagamento ou programação.
 let carregandoContratacoes=false;
 async function listarContratacoes(){
@@ -592,6 +623,14 @@ async function listarContratacoes(){
      if(envio&&String(envio.status||'').toLowerCase()==='aprovada'){
       const botaoLiberar=criarBotao('🔓 Liberar manual',()=>liberarArtistaManual(p,envio,botaoLiberar,estadoPagamento));
       card.appendChild(botaoLiberar);
+      // A função do servidor aceita atualmente apenas o plano Inicial ativo e pago.
+      if(String(p.plano).toLowerCase()==='inicial' && String(p.status).toLowerCase()==='ativo'){
+       const avisoPreparacao=document.createElement('p');
+       avisoPreparacao.className='muted';
+       avisoPreparacao.textContent='Preparação do arquivo: ainda não confirmada nesta tela.';
+       const botaoPreparar=criarBotao('📤 Preparar no AzuraCast',()=>prepararArtistaAzura(p,envio,botaoPreparar,avisoPreparacao));
+       card.append(botaoPreparar,avisoPreparacao);
+      }
      }
     }
    lista.appendChild(card);
