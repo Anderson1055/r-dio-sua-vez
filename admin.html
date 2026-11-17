@@ -356,7 +356,7 @@ async function listarEnviosArtistas(){
   const outros=registros.filter(m=>!pendentes.includes(m));
   const aguardandoPix=el('listaAguardandoPix');aguardandoPix.replaceChildren();
   const aprovados=registros.filter(m=>String(m.status||'').toLowerCase().trim()==='aprovada');
-  const {data:contratos,error:erroContratos}=await client.from('contratacoes_divulgacao').select('envio_id,status,plano,criado_em,pago_em,pagamento_id').order('criado_em',{ascending:false}).limit(500);
+  const {data:contratos,error:erroContratos}=await client.from('contratacoes_divulgacao').select('id,envio_id,status,plano,criado_em,pago_em,pagamento_id').order('criado_em',{ascending:false}).limit(500);
   if(erroContratos)throw erroContratos;
   const ultimoContrato=new Map();for(const c of contratos||[]){if(!ultimoContrato.has(String(c.envio_id)))ultimoContrato.set(String(c.envio_id),c);}
   for(const m of aprovados){
@@ -365,7 +365,14 @@ async function listarEnviosArtistas(){
    adicionarTexto(card,'Música',textoEnvio(m,['titulo','nome_musica']));
    adicionarTexto(card,'Artista',textoEnvio(m,['artista','nome_artista']));
    adicionarTexto(card,'Etapa',pedido?'Plano '+(pedido.plano||'não informado')+' — '+pedido.status:'Aguardando o artista escolher o plano');
-   const alerta=document.createElement('p');alerta.className='aviso';alerta.textContent='🔒 Fora da biblioteca e do AzuraCast. Pagamento real ainda não integrado.';card.appendChild(alerta);
+   const pago=Boolean(pedido?.pago_em && pedido?.pagamento_id && ['ativo','pago','pagamento_confirmado','concluido'].includes(String(pedido?.status||'').toLowerCase()));
+   const alerta=document.createElement('p');alerta.className=pago?'ok':'aviso';
+   alerta.textContent=pago?'✅ PAGO — Pix registrado no servidor. Aguardando liberação administrativa.':'⏳ Aguardando confirmação de pagamento ou contratação.';
+   card.appendChild(alerta);
+   if(pago){
+    const b=criarBotao('🔓 Liberar manual',()=>liberarArtistaManual(pedido,m,b,alerta));
+    card.appendChild(b);
+   }
    aguardandoPix.appendChild(card);
   }
   if(!aprovados.length){const p=document.createElement('p');p.className='muted';p.textContent='Nenhuma música aprovada aguardando plano ou Pix.';aguardandoPix.appendChild(p);}
@@ -438,6 +445,36 @@ async function listarEnviosArtistas(){
  }catch(e){el('mensagemEnvios').textContent='Erro ao carregar envios: '+e.message;}
  finally{carregandoEnvios=false;el('btnAtualizarEnvios').disabled=false;}
 }
+// A liberação é autorizada exclusivamente pelo servidor, com validação do Pix no Mercado Pago.
+async function liberarArtistaManual(pedido,envio,botao,aviso){
+ if(operando)return;
+ if(!(await adminAutorizado())){alert('Acesso administrativo não autorizado.');return;}
+ if(!pedido?.id||!envio?.id){alert('Identificação da contratação incompleta.');return;}
+ if(!confirm('Autorizar a música “'+textoEnvio(envio,['titulo','nome_musica'])+'” para a programação controlada? A liberação não faz a música tocar imediatamente.'))return;
+ operando=true;botao.disabled=true;aviso.className='aviso';aviso.textContent='Verificando Pix real e registrando autorização no servidor...';
+ try{
+  const {data,error}=await client.functions.invoke('radio-azuracast',{
+   body:{acao:'liberar_manual',contratacao_id:pedido.id,envio_id:envio.id}
+  });
+  if(error){
+   let detalhe=error.message||'Falha ao chamar o servidor.';
+   if(error.context&&typeof error.context.json==='function'){
+    try{const resposta=await error.context.json();detalhe=resposta.erro||resposta.error||detalhe;}catch{}
+   }
+   throw new Error(detalhe);
+  }
+  if(data?.sucesso!==true)throw new Error(data?.erro||'O servidor não confirmou a autorização.');
+  const {data:musica,error:erroMusica}=await client.from('musicas')
+   .select('id,liberada_radio').eq('envio_artista_id',envio.id).eq('origem','artista').maybeSingle();
+  if(erroMusica||!musica||musica.liberada_radio!==true)throw new Error('Não foi possível confirmar a liberação no banco.');
+  aviso.className='ok';aviso.textContent='✅ Autorizada para a programação controlada. Ainda não está tocando no ar.';
+  botao.textContent='✅ Liberada';botao.disabled=true;
+ }catch(e){
+  aviso.className='erro';aviso.textContent='❌ Liberação não confirmada: '+e.message;
+  botao.disabled=false;
+ }finally{operando=false;}
+}
+
 // Consulta contratações reais sem modificar pagamento ou programação.
 let carregandoContratacoes=false;
 async function listarContratacoes(){
@@ -494,6 +531,15 @@ async function listarContratacoes(){
     card.appendChild(resultado);
    });
    card.appendChild(checar);
+    const pagamentoRegistrado=Boolean(p.pago_em&&p.pagamento_id&&['ativo','pago','pagamento_confirmado','concluido'].includes(String(p.status||'').toLowerCase()));
+    if(pagamentoRegistrado){
+     const estadoPagamento=document.createElement('p');estadoPagamento.className='ok';
+     estadoPagamento.textContent='✅ PAGO — Pix registrado no servidor (ID '+p.pagamento_id+').';card.appendChild(estadoPagamento);
+     if(envio&&String(envio.status||'').toLowerCase()==='aprovada'){
+      const botaoLiberar=criarBotao('🔓 Liberar manual',()=>liberarArtistaManual(p,envio,botaoLiberar,estadoPagamento));
+      card.appendChild(botaoLiberar);
+     }
+    }
    lista.appendChild(card);
   }
   if(!pedidos?.length){const vazio=document.createElement('p');vazio.className='muted';vazio.textContent='Nenhuma contratação registrada.';lista.appendChild(vazio);}
